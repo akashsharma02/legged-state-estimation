@@ -1,0 +1,120 @@
+[settings]
+    arch=x86_64
+    build_type=RelWithDebInfo
+    compiler=gcc
+    compiler.cppstd=14
+    compiler.libcxx=libstdc++11
+    compiler.version=9
+    os=Linux
+
+[requires]
+    boost/1.Y.Z
+    cli11/1.Y.Z
+    fmt/7.Y.Z
+    spdlog/1.Y.Z
+
+[options]
+
+
+[full_settings]
+    arch=x86_64
+    arch_build=x86_64
+    build_type=RelWithDebInfo
+    compiler=gcc
+    compiler.cppstd=14
+    compiler.libcxx=libstdc++11
+    compiler.version=9
+    os=Linux
+    os_build=Linux
+
+[full_requires]
+    boost/1.75.0:732c5b23476be152b6d889260db753ba22a662f1
+    bzip2/1.0.8:ff2ff6bb41ed84283a6634bada252c37f13eb93c
+    cli11/1.9.1:5ab84d6acfe1f23c4fae0ab88f26e3a396351ac9
+    fmt/7.1.2:39ace7e3c21bc9e69beae13f1a8103f52b2710de
+    libiconv/1.16:6b7ff26bfd4c2cf2ccba522bfba2d2e7820e40da
+    spdlog/1.8.2:7186f8ab5ce51072140b19c066af736d367dedae
+    zlib/1.2.11:6b7ff26bfd4c2cf2ccba522bfba2d2e7820e40da
+
+[full_options]
+    boost:asio_no_deprecated=False
+    boost:bzip2=True
+    boost:debug_level=0
+    boost:diagnostic_definitions=False
+    boost:error_code_header_only=False
+    boost:extra_b2_flags=None
+    boost:fPIC=True
+    boost:filesystem_no_deprecated=False
+    boost:header_only=False
+    boost:i18n_backend=iconv
+    boost:layout=system
+    boost:lzma=False
+    boost:magic_autolink=False
+    boost:multithreading=True
+    boost:namespace=boost
+    boost:namespace_alias=False
+    boost:numa=True
+    boost:pch=True
+    boost:python_executable=None
+    boost:python_version=None
+    boost:segmented_stacks=False
+    boost:shared=False
+    boost:system_no_deprecated=False
+    boost:visibility=hidden
+    boost:without_atomic=False
+    boost:without_chrono=False
+    boost:without_container=False
+    boost:without_context=False
+    boost:without_contract=False
+    boost:without_coroutine=False
+    boost:without_date_time=False
+    boost:without_exception=False
+    boost:without_fiber=False
+    boost:without_filesystem=False
+    boost:without_graph=False
+    boost:without_graph_parallel=True
+    boost:without_iostreams=False
+    boost:without_json=False
+    boost:without_locale=False
+    boost:without_log=False
+    boost:without_math=False
+    boost:without_mpi=True
+    boost:without_nowide=False
+    boost:without_program_options=False
+    boost:without_python=True
+    boost:without_random=False
+    boost:without_regex=False
+    boost:without_serialization=False
+    boost:without_stacktrace=False
+    boost:without_system=False
+    boost:without_test=False
+    boost:without_thread=False
+    boost:without_timer=False
+    boost:without_type_erasure=False
+    boost:without_wave=False
+    boost:zlib=True
+    boost:zstd=False
+    bzip2:build_executable=True
+    bzip2:fPIC=True
+    bzip2:shared=False
+    fmt:fPIC=True
+    fmt:header_only=False
+    fmt:shared=False
+    fmt:with_fmt_alias=False
+    libiconv:fPIC=True
+    libiconv:shared=False
+    spdlog:fPIC=True
+    spdlog:header_only=False
+    spdlog:no_exceptions=False
+    spdlog:shared=False
+    spdlog:wchar_filenames=False
+    spdlog:wchar_support=False
+    zlib:fPIC=True
+    zlib:minizip=False
+    zlib:shared=False
+
+[recipe_hash]
+
+
+[env]
+
