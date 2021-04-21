@@ -16,6 +16,7 @@ def getBiasVector(stdDev):
 def separate_and_add_noise(args, path):
     full_path = os.path.join(args.path, path)
     df = pd.read_csv(full_path)
+    df[['ax','ay','az']] *= 200
     gt = df[['ts', 'x', 'y', 'z', 'i', 'j', 'k', 'w']]
     gt.to_csv(os.path.join(args.ground_truth, path))
 
