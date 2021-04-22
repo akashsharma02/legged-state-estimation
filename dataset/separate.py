@@ -52,9 +52,11 @@ def separate_and_add_noise(args, path):
     measurement_df.iloc[0, 4:7] += b_a
     for i in range(1, len(measurement_df)):
         gyro_bias = getBiasVector(config.GyroWalk) # (3, 1)
-        measurement_df.iloc[i, 1:4] = measurement_df.iloc[i - 1, 1:4] + gyro_bias
+        b_w += gyro_bias
+        measurement_df.iloc[i, 1:4] += gyro_bias
         acc_bias = getBiasVector(config.AccWalk)
-        measurement_df.iloc[i, 4:7] = measurement_df.iloc[i - 1, 4:7] + acc_bias
+        b_a += acc_bias
+        measurement_df.iloc[i, 4:7] += + acc_bias
     
     measurement_df.to_csv(os.path.join(args.measurement, path))
 
