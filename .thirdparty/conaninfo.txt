@@ -110,7 +110,7 @@
     spdlog:wchar_filenames=False
     spdlog:wchar_support=False
     zlib:fPIC=True
-    zlib:minizip=False
+    zlib:minizip=deprecated
     zlib:shared=False
 
 [recipe_hash]

@@ -294,7 +294,7 @@
   ],
   [
    "zlib:minizip",
-   "False"
+   "deprecated"
   ],
   [
    "zlib:shared",
