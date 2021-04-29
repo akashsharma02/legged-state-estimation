@@ -1,3 +1,11 @@
+/******************************************************************************
+* File:             BetweenContactFactor.h
+*
+* Author:           Ruoyang Xu
+* Created:          04/27/2021
+* Description:      Implementation of Contact Factor
+*****************************************************************************/
+
 #ifndef BETWEENCONTACT_FACTOR
 #define BETWEENCONTACT_FACTOR
 
@@ -32,22 +40,32 @@ namespace gtsam {
             virtual ~BetweenPointContactFactor() {}
 
             // Return deep copy by constructing a shared pointer 
-            gtsam::NonlinearFactor::shared_ptr clone() const overrider {
+            gtsam::NonlinearFactor::shared_ptr clone() const override {
                 return boost::static_pointer_cast<gtsam::NonlinearFactor> (
-                    gtsam::NonlinearFactor::shared_ptr(new This(*this));
-                )
+                    gtsam::NonlinearFactor::shared_ptr(new This(*this))
+                );
             }
 
             void print(const std::string& s, const KeyFormatter& keyFormatter = DefaultKeyFormatter) const override {
                 // Stream to s, etc
                 // TODO:
+                std::cout << s << "BetweenPointContactFactor("
+                    << keyFormatter(this->base1()) << ","
+                    << keyFormatter(this->base2()) << ","
+                    << keyFormatter(this->contact1()) << ","
+                    << keyFormatter(this->contact2()) << ")\n";
+                this->noiseModel_->print(" noise model:  ");
             }
 
             bool equals(const NonlinearFactor& expected, double tol=1e-9) const override {
                 // Cast to the same type of pointer
-                // TODO: Properly implement this
+                // 1. Pointer not null
+                // 2. The same
                 // const This *e = dynamic_cast<const This*> (&expected);
                 // return e != NULL && Base::equals(*e. tol) && this->measured_.equals(e->measured_, tol);
+                const This *e = dynamic_cast<const This*> (&expected);
+                // No measurement since, there's no measurement
+                return e != NULL && Base::equals(*e, tol);
             }
 
             typedef Eigen::Matrix<double, 3, 1> Vector3;
@@ -57,24 +75,24 @@ namespace gtsam {
 
                 Vector error = posei.rotation().transpose() * (contactj.translation() - contacti.translation());
 
-                // Potentially I have to swap 
+                // Potentially I have to swap, based on w and v locations
                 if (H1) {
-                    *H1 = Matrix::zeros(3, 6);
+                    *H1 = Matrix::Zero(3, 6);
                     H1->block(0, 3, 3, 3) = (Matrix(3, 3) << 0, -error(2), error(1),  error(2), 0, -error(0), -error(1), error(0), 0).finished();
                 }
 
                 if (H2) {
-                    *H2 = Matrix::zeros(3, 6);
+                    *H2 = Matrix::Zero(3, 6);
                 }
 
                 if (H3) {
-                    *H3 = Matrix::zeros(3, 6);
-                    H3->block(0, 0, 3, 3) = -posei.rotation().transpose() * contacti.rotation();
+                    *H3 = Matrix::Zero(3, 6);
+                    H3->block(0, 0, 3, 3) = -posei.rotation().transpose() * contacti.rotation().matrix();
                 }
 
                 if (H4) {
-                    *H4 = Matrix::zeros(3, 6);
-                    H4->block(0, 0, 3, 3) = -posei.rotation().transpose() * contactj.rotation();
+                    *H4 = Matrix::Zero(3, 6);
+                    H4->block(0, 0, 3, 3) = -posei.rotation().transpose() * contactj.rotation().matrix();
                 }
 
                 return error;

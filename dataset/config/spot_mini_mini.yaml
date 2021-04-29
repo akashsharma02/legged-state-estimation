@@ -1,0 +1,22 @@
+# This is the same for all Rotors
+r1: [1, 0, 0]
+r2: [0, 1, 0]
+r3: [0, 1, 0]
+
+# x, y, z, i, j, k, w
+# Base to Back Right Hip
+# This should stay constant
+bTbrh: [-0.137, -0.039, 0.022, 0.000, 0.000, 0.000, 1.000]
+
+# Back Right Hip to Back Right Foot at ZERO Configuration
+brhTbrf: [-0.004, -0.063, -0.244, 0.000, 0.002, 0.000, 1.000]
+
+# Back Right Hip to Back right Upper leg
+brhTbrul: [0.002, -0.045, -0.009, 0.000, 0.002, 0.000, 1.000]
+
+# Back Right Upper leg to Back right lower leg
+brulTbrll: [-0.005, -0.018, -0.109, 0.000, 0.000, 0.000, 1.000]
+
+# Back right lower leg to Back right foot
+brllTbrf: [0.000, 0.000, -0.127, 0.000, 0.000, 0.000, 1.000]
+

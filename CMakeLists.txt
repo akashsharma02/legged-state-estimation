@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15+)
 
 # Project name
 project(legged-state-estimation LANGUAGES CXX)
+add_compile_options(-std=c++11)
 
 # Project standard settings
 # ------------------ Standard Project settings and warnings -----------------
@@ -37,13 +38,20 @@ include(cmake/conan.cmake)
 run_conan()
 find_package(Eigen3 3.3 REQUIRED)
 find_package(GTSAM 4.1 REQUIRED)
+find_package(yaml-cpp 0.6.0 PATHS thirdparty/yaml-cpp)
 
-
+include_directories(
+    ${PROJECT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/include
+    ${EIGEN3_INCLUDE_DIR}
+)
 # ----------------------- Build options -------------------------------------
 
 # ----------------------- Subdirectories ------------------------------------
 add_subdirectory(utils)
 add_subdirectory(src)
+
+
 # add_subdirectory(scripts)
 
 # ----------------------- Testing -------------------------------------------
