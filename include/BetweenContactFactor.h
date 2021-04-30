@@ -75,7 +75,7 @@ namespace gtsam {
 
                 Vector error = posei.rotation().transpose() * (contactj.translation() - contacti.translation());
 
-                // Potentially I have to swap, based on w and v locations
+                // Potentially to swap, based on w and v locations
                 if (H1) {
                     *H1 = Matrix::Zero(3, 6);
                     H1->block(0, 3, 3, 3) = (Matrix(3, 3) << 0, -error(2), error(1),  error(2), 0, -error(0), -error(1), error(0), 0).finished();
