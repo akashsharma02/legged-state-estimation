@@ -13,7 +13,7 @@
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Point3.h>
-
+#include <gtsam/inference/Symbol.h>
 namespace gtsam {
 
     Matrix customExpmap(Vector xi, double theta) {
@@ -53,10 +53,11 @@ namespace gtsam {
     class LegMeasurement {
         public:
             LegMeasurement() {}
-            LegMeasurement(LegConfig leg_, Pose3 base, Pose3 contact, double dt) {
+            LegMeasurement(LegConfig leg_, Pose3 base, Pose3 contact, double dt, double ts) {
                 leg = leg_;
                 Matrix B = base.rotation().transpose() * contact.rotation().transpose() * dt;
                 measureNoise = B * leg.covSlip * B.transpose();
+                ts_ = ts;
             }
 
             ~LegMeasurement() {}
@@ -70,7 +71,7 @@ namespace gtsam {
                 return g;
             }
 
-            Matrix efInBase(Vector encoder) {
+            static Matrix efInBase(Vector encoder, const LegConfig& leg) {
                 auto g = leg.firstJointInBase;
                 g = g * gtsam::Pose3(gtsam::Rot3::Rx(encoder(0)), gtsam::Point3()).matrix();
                 g *= leg.jTul;
@@ -84,8 +85,9 @@ namespace gtsam {
             // Update Covariance
             // Pose3 iGj i -> j, Pose J in frame of Pose i
             // Obtained through IMU estimation
-            void integrateNewMeasurement(Pose3 iGj, Vector encoder, double dt) {
-                Matrix B = iGj.rotation() * efInBase(encoder).block(0, 0, 3, 3) * dt;
+            void integrateNewMeasurement(Rot3 iGj, Vector encoder, double ts) {
+                double dt = ts - ts_;
+                Matrix B = iGj.matrix() * efInBase(encoder, leg).block(0, 0, 3, 3) * dt;
                 measureNoise += B * leg.covSlip * B.transpose();
             }
 
@@ -94,7 +96,17 @@ namespace gtsam {
         public:
             LegConfig leg;
             Matrix measureNoise;
+            double ts_;
     };
+
+    struct ContactStates
+    {
+        int baseMakeContact;
+        int baseBreakContact;
+        int contactMakeContact;
+        int contactBreakContact;
+    };
+    
 }
 
 #endif

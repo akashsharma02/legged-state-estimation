@@ -34,8 +34,8 @@ namespace gtsam {
             BetweenPointContactFactor() {}
 
             BetweenPointContactFactor(const Key& base1, const Key& base2, const Key& contact1,
-            const Key& contact2, const SharedNoiseModel& model) :
-            Base(model, base1, base2, contact1, contact2) {}
+            const Key& contact2, const Matrix covariance) :
+            Base(noiseModel::Gaussian::Covariance(covariance), base1, base2, contact1, contact2) {}
 
             virtual ~BetweenPointContactFactor() {}
 
