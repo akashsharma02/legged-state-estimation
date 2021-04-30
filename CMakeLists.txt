@@ -45,6 +45,17 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/include
     ${EIGEN3_INCLUDE_DIR}
 )
+
+add_library(${PROJECT_NAME} SHARED
+    src/dataloader.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}
+    ${OpenCV_LIBS}
+    ${EIGEN3_LIBS}
+    yaml-cpp
+    gtsam
+)
 # ----------------------- Build options -------------------------------------
 
 # ----------------------- Subdirectories ------------------------------------

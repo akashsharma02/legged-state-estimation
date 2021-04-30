@@ -11,10 +11,12 @@
 
 #include <gtsam/base/Lie.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Point3.h>
 
 namespace gtsam {
 
-    Matrix Expmap(Vector xi, double theta) {
+    Matrix customExpmap(Vector xi, double theta) {
         // Xi: Twist w {x,y,z}; v {x,y,z}
         // For gtsam::Pose3 it seems it's wx, wy, wz, vx, vy, vz
         auto omega = (Eigen::Vector3d() << xi(0), xi(1), xi(2)).finished();
@@ -62,7 +64,7 @@ namespace gtsam {
             Matrix efInBaseExpMap(Vector encoder) {
                 auto g = leg.firstJointInBase;
                 for (auto i = 0; i < encoder.size(); i++) {
-                    g = g * Expmap(leg.xi.at(size_t(i)), encoder(i));
+                    g = g * customExpmap(leg.xi.at(size_t(i)), encoder(i));
                 }
                 g *= leg.endEffectorConfiguration0;
                 return g;
@@ -70,7 +72,6 @@ namespace gtsam {
 
             Matrix efInBase(Vector encoder) {
                 auto g = leg.firstJointInBase;
-                // gtsam::Pose3(gtsam::Rot3::Rx(encoder(0)), gtsam::Point3()).matrix();
                 g = g * gtsam::Pose3(gtsam::Rot3::Rx(encoder(0)), gtsam::Point3()).matrix();
                 g *= leg.jTul;
                 g *= gtsam::Pose3(gtsam::Rot3::Ry(encoder(1)), gtsam::Point3()).matrix();
@@ -82,6 +83,7 @@ namespace gtsam {
 
             // Update Covariance
             // Pose3 iGj i -> j, Pose J in frame of Pose i
+            // Obtained through IMU estimation
             void integrateNewMeasurement(Pose3 iGj, Vector encoder, double dt) {
                 Matrix B = iGj.rotation() * efInBase(encoder).block(0, 0, 3, 3) * dt;
                 measureNoise += B * leg.covSlip * B.transpose();

@@ -3,7 +3,7 @@
 *
 * Author:           Ruoyang Xu
 * Created:          04/28/2021
-* Description:      Test file for gtsam compilation
+* Description:      Test files for Point Contact Factor
 *****************************************************************************/
 
 #include <utils.h>
@@ -12,49 +12,36 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <iostream>
+#include <map>
 #include <gtsam/base/Lie.h>
+#include <vector>
+#include <string.h>
 
+// Factors
 #include "ContactUtils.h"
 #include "BetweenContactFactor.h"
+
+// Utils 
 #include "fast-cpp-csv-parser/csv.h"
+#include "dataloader.h"
 
+#include <gtsam/inference/Symbol.h>
+#include <gtsam/navigation/CombinedImuFactor.h>
+#include <gtsam/navigation/ImuFactor.h>
+#include <gtsam/nonlinear/ISAM2.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
-Eigen::MatrixXd extractMatrix(const YAML::Node& node, std::string attribute) {
-    const std::vector<double> vec = node[attribute].as< std::vector<double> >();
-    Eigen::Matrix<double, 1, 7, Eigen::RowMajor> mat(vec.data());
-    return Eigen::MatrixXd(mat);
-}
+using namespace gtsam;
 
-Eigen::MatrixXd Data2PoseMat(Eigen::MatrixXd vec) {
-    gtsam::Quaternion q(vec(6), vec(3), vec(4), vec(5));
-    gtsam::Rot3 r(q);
-    gtsam::Point3 t(vec(0), vec(1), vec(2));
-    gtsam::Pose3 p(r, t);
-    return p.matrix();
-}
-
-gtsam::LegConfig loadConfig(std::string configPath) {
-    // Load Yaml
-    YAML::Node node = YAML::LoadFile(configPath);
-    gtsam::LegConfig rightBackLeg;
-    rightBackLeg.firstJointInBase = Data2PoseMat(extractMatrix(node, "bTbrh"));
-    rightBackLeg.jTul = Data2PoseMat(extractMatrix(node, "brhTbrul"));
-    rightBackLeg.ulTll = Data2PoseMat(extractMatrix(node, "brulTbrll"));
-    rightBackLeg.llTf = Data2PoseMat(extractMatrix(node, "brllTbrf"));
-    rightBackLeg.covSlip = Eigen::MatrixXd::Identity(3, 3);
-
-    // std::cout << rightBackLeg.firstJointInBase << std::endl;
-    // std::cout << rightBackLeg.jTul << std::endl;
-    // std::cout << rightBackLeg.ulTll << std::endl;
-    // std::cout << rightBackLeg.llTf << std::endl;
-    // std::cout << rightBackLeg.covSlip << std::endl;
-    return rightBackLeg;
-}
+using symbol_shorthand::B;
+using symbol_shorthand::V;
+using symbol_shorthand::X;
 
 int main(int argc, char* argv[])
 {
     utils::setLogPattern();
-    CLI::App app{"Test file for Single Leg Contact Factor"};
+    CLI::App app{"Test file for Multi Leg Contact Factor"};
 
     std::string configFilePath("");
     std::string datasetFilePath("");
@@ -64,22 +51,57 @@ int main(int argc, char* argv[])
     app.add_option("-m, --maxIdx", maxIdx, "max index for number of data to be read");
     CLI11_PARSE(app, argc, argv);
 
-    auto legConfig = loadConfig(configFilePath);
-    gtsam::LegMeasurement leg;
-    leg.leg = legConfig;
-    
-    // Read CSV
-    // 2 (idx, ts) + 3 (acc) + 3 (angV) + 4 * 3 (leg Encoder) + 4 (Leg Contact)
-    io::CSVReader<10> datafile(datasetFilePath);
-    datafile.read_header(io::ignore_extra_column,
-        "x","y","z","i","j","k","w","br0","br1","br2");
-    double x,y,z,i,j,k,w;
-    double br0,br1,br2;
+    // Load Leg Configs
+    std::map<std::string, gtsam::LegConfig> legConfigs = DataLoader::loadLegConfig(configFilePath);
 
+    // Setup IMU Configs
+    // 
+
+    // Setup Dataset
+    io::CSVReader<23> datafile(datasetFilePath);
+    datafile.read_header(io::ignore_extra_column,
+        "ts","wx","wy","wz","ax","ay","az","fl0","fl1","fl2",
+        "fr0","fr1","fr2","bl0","bl1","bl2","br0","br1","br2",
+        "flc","frc","blc","brc"
+    );
+    double ts,wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2;
+    int flc,frc,blc,brc;
     int idx = 0;
-    while (datafile.read_row(x,y,z,i,j,k,w,br0,br1,br2) && idx++ < maxIdx) {
-        gtsam::Vector3 p(br0, br1, br2);
-        std::cout << leg.efInBase(p) << std::endl;
-        std::cout << "x: " << x << ", y: " << y << ", z: " << z << std::endl;
+    bool robotReady = false;
+
+    // Setup FactorGraph
+    NonlinearFactorGraph* graph = new NonlinearFactorGraph();
+
+    while (datafile.read_row(
+        ts,wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2,flc,frc,blc,brc
+        ) && idx++ < maxIdx) {
+
+        // Wait until All Four legs are on the ground, since they were initially floating
+        if (flc == 1 && frc == 1 && blc == 1 && brc == 1 && !robotReady) {
+            // Mark ready
+            robotReady = true;
+            
+            // Create Prior and Stuff
+
+            // Skip so that factors are not added repeatedly
+            continue;
+        } else if (!robotReady) {
+            // If not ready and also not on the ground, just skip the rest
+            continue;
+        }
+
+
+
+
+
+        // if ready
+            // If contact sensor no changes
+                // accumulate IMU Measurment
+            // if contact sensor changes
+                // Create New Node in the Factor Graph
+                    // IMU Factor
+                    // Point Contact Factor
+                    // Forward Kinematic Factor
     }
+    
 }
