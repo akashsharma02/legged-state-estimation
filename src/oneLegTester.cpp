@@ -12,6 +12,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <iostream>
+#include <fstream>
 #include <map>
 #include <gtsam/base/Lie.h>
 #include <vector>
@@ -44,6 +45,8 @@ using symbol_shorthand::P; // FR Foot Pose
 using symbol_shorthand::A; // BL Foot Pose
 using symbol_shorthand::L; // BR Foot Pose
 
+void saveTrajectory(const Values &, uint64_t);
+
 int main(int argc, char* argv[])
 {
     utils::setLogPattern();
@@ -53,16 +56,20 @@ int main(int argc, char* argv[])
     std::string datasetFilePath("");
     std::string imuConfigPath("");
     int maxIdx = 10;
+    bool debug = false;
     app.add_option("-c, --config", configFilePath, "Leg Configuration input");
     app.add_option("-d, --data", datasetFilePath, "Dataset input");
     app.add_option("-i, --IMU", imuConfigPath, "IMU Config File Path");
     app.add_option("-m, --maxIdx", maxIdx, "max index for number of data to be read");
+    app.add_option("-b, --debug", debug, "debug options");
     CLI11_PARSE(app, argc, argv);
 
     // Setup Dataset
-    io::CSVReader<23> datafile(datasetFilePath);
+    io::CSVReader<23 + 7> datafile(datasetFilePath);
     datafile.read_header(io::ignore_extra_column,
-        "ts","wx","wy","wz","ax","ay","az","fl0","fl1","fl2",
+        "ts",
+        "x","y","z","i","j","k","w",
+        "wx","wy","wz","ax","ay","az","fl0","fl1","fl2",
         "fr0","fr1","fr2","bl0","bl1","bl2","br0","br1","br2",
         "flc","frc","blc","brc"
     );
@@ -128,12 +135,12 @@ int main(int argc, char* argv[])
     // Setup FactorGraph
     NonlinearFactorGraph* graph = new NonlinearFactorGraph();
     double dt = 1. / 200;
-    if (false) {
+    // if (false) {
         ISAM2Params parameters;
         parameters.relinearizeThreshold = 0.01;
         parameters.relinearizeSkip = 1;
         ISAM2* isam2 = new ISAM2(parameters);
-    }
+    // }
 
     // Setup Prior Factors
     auto priorPoseNoise = noiseModel::Diagonal::Sigmas(
@@ -158,8 +165,22 @@ int main(int argc, char* argv[])
     LegMeasurement* bl;
     LegMeasurement* br;
     ContactStates flState;
+
+    Values result;
+    if (debug) {
+        graph->print("\nFactor Graph:\n");
+        initialValues.print("\nInitial Estimate:\n"); 
+        LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
+        result = optimizer.optimize();
+        result.print("Final Result:\n");
+    }
+
+    double x, y, z, i, j, k, w;
+
     while (datafile.read_row(
-        ts,wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2,flc,frc,blc,brc
+        ts,
+        x, y, z, i, j, k, w,
+        wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2,flc,frc,blc,brc
         ) && idx++ < maxIdx) {
 
         // Wait until All Four legs are on the ground
@@ -167,6 +188,7 @@ int main(int argc, char* argv[])
         if (flc == 1 && frc == 1 && blc == 1 && brc == 1 && !robotReady) {
             // Mark ready
             robotReady = true;
+            std::cout << "Marked Ready on " << idx << " th line" << std::endl;
 
             // Priors are already added
         } else if (!robotReady) {
@@ -174,7 +196,8 @@ int main(int argc, char* argv[])
             continue;
         }
 
-        if (flcl == flc && frcl == frc && blcl == blc && brcl == brc) {
+        if (flcl == flc) {
+        //  && frcl == frc && blcl == blc && brcl == brc) {
             // Contact Sensor has no change
             Vector6 imu = (Vector6() << ax, ay, az, wx, wy, wz).finished();
             preintegrated->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
@@ -185,6 +208,8 @@ int main(int argc, char* argv[])
             imuLogL->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
         } else {
 
+            // std::cout << "Handle IMU Factor" << std::endl;
+
             // Handle IMU Factors
             stateCount++;
             Vector6 imu = (Vector6() << ax, ay, az, wx, wy, wz).finished();
@@ -193,7 +218,7 @@ int main(int argc, char* argv[])
             auto preintIMU = dynamic_cast<const PreintegratedImuMeasurements&>(*preintegrated);
             ImuFactor imuFactor(
                 X(stateCount - 1), V(stateCount - 1),
-                X(stateCount), V(stateCount - 1),
+                X(stateCount), V(stateCount),
                 B(stateCount - 1), preintIMU
             );
             graph->add(imuFactor);
@@ -209,6 +234,7 @@ int main(int argc, char* argv[])
 
             // *******************************************
             // Handle the Legs
+            if (false) {
             if (flcl == 1 && flc == 0) {
                 // Front Left Leg breaks contact
                 if (!fl) {
@@ -220,10 +246,15 @@ int main(int argc, char* argv[])
                 imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
                 fl->integrateNewMeasurement(imuLogQ->deltaRij(), encoder, double(ts) / 200);
                 Matrix noiseMatrix = fl->getNoise();
-                // noiseModel::Gaussian::Covariance noise(noiseMatrix);
-                BetweenPointContactFactor contactFactor(X(flState.baseMakeContact), X(stateCount), 
-                    Q(flState.contactMakeContact), Q(stateCount), noiseMatrix);
+                BetweenPointContactFactor contactFactor(noiseMatrix, X(flState.baseMakeContact), X(stateCount), 
+                    Q(flState.contactMakeContact), Q(stateCount), Pose3());
                 graph->add(contactFactor);
+
+                // Need to add initial estimate
+                Pose3 baseTcontact = Pose3(LegMeasurement::efInBase(encoder, legConfigs["fl"]));
+                baseTcontact = propState.pose().compose(baseTcontact);
+                initialValues.insert(Q(flState.contactMakeContact), fl->makeContact);
+                initialValues.insert(Q(stateCount), baseTcontact);
 
                 imuLogQ->resetIntegrationAndSetBias(prevBias);
             } else if (flcl == 0 && flc == 1) {
@@ -239,7 +270,7 @@ int main(int argc, char* argv[])
 
                 // Makes Contact Factor
                 Vector encoder = (Vector3() << fl0, fl1, fl2).finished();
-                Pose3 baseTcontact = LegMeasurement::efInBase(encoder, legConfigs["fl"]);
+                Pose3 baseTcontact = Pose3(LegMeasurement::efInBase(encoder, legConfigs["fl"]));
                 baseTcontact = propState.pose().compose(baseTcontact);
                 // This gives Contact Frame Relative to World position
                 fl = new LegMeasurement(legConfigs["fl"], propState.pose(), baseTcontact, dt, double(ts) / 200.);
@@ -248,18 +279,27 @@ int main(int argc, char* argv[])
                 // No change
                 imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
             }
+            }
 
 
             // *******************************************
             
-            Values result;
-            LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
-            result = optimizer.optimize();
+            // LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
+            // result = optimizer.optimize();
+            // prevState = NavState(result.at<Pose3>(X(stateCount)),
+            //     result.at<Vector3>(V(stateCount)));
+            // prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
+            // preintegrated->resetIntegrationAndSetBias(prevBias);
+
+            isam2->update(*graph, initialValues);
+            isam2->update();
+            result = isam2->calculateEstimate();
+            graph->resize(0);
+            initialValues.clear();
             prevState = NavState(result.at<Pose3>(X(stateCount)),
                 result.at<Vector3>(V(stateCount)));
             prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
             preintegrated->resetIntegrationAndSetBias(prevBias);
-
         }
 
         // if ready
@@ -277,5 +317,51 @@ int main(int argc, char* argv[])
         brcl = brc;
     }
 
+    Eigen::Quaternion finRot3(w, i, j, k);
+    Rot3 r(finRot3);
+    Point3 t(x, y, z);
+    Pose3 g = Pose3(r, t);
+    BetweenFactor<Pose3> lp(X(0), X(stateCount), priorPose.between(g), priorPoseNoise);
+    graph->add(lp);
+
+    // LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
+    // result = optimizer.optimize();
+    // prevState = NavState(result.at<Pose3>(X(stateCount)),
+    //     result.at<Vector3>(V(stateCount)));
+    // prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
+    // preintegrated->resetIntegrationAndSetBias(prevBias);
+            
+
+    isam2->update(*graph, initialValues);
+    isam2->update();
+    result = isam2->calculateEstimate();
+    graph->resize(0);
+    initialValues.clear();
+    prevState = NavState(result.at<Pose3>(X(stateCount)),
+        result.at<Vector3>(V(stateCount)));
+    prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
+    preintegrated->resetIntegrationAndSetBias(prevBias);
+
+    saveTrajectory(result, stateCount);
+    
+
     std::cout << "Sucessfully Completed" << std::endl;
+}
+
+void saveTrajectory(const Values & v, uint64_t stateCount) {
+    std::string filename = "Trajectory.txt";
+    std::cout << "Saving Base Trajectory to " << filename << std::endl;
+    std::ofstream f;
+    f.open(filename.c_str());
+
+    Pose3 base;
+    f << "x,y,z" << std::endl;
+    for (uint64_t i = 0; i < stateCount; i++) {
+        base = v.at<Pose3>(X(i));
+        auto t = base.translation();
+        f << t(0) << "," << t(1) << "," << t(2) << std::endl;
+    }
+    f.close();
+    std::cout << "Trajectory Saved!" << std::endl;
+    
 }

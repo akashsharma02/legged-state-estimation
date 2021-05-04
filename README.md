@@ -16,8 +16,9 @@ Remaining used packages should get built automatically during cmake configuratio
 
 ## Usage
 
-TODO
-
+```
+./build/bin/oneLeg -c dataset/config/spot_mini_mini.yaml -d dataset/data/raw_collected/sequence1.txt -m 150000 -i dataset/config/imu_fake.yaml -b false
+```
 ## Developers
 
 For logging use the CMake option `LOGGER_ACTIVE_LEVEL` to set the logging level during compile time

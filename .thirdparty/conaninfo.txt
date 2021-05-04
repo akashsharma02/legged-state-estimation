@@ -1,6 +1,6 @@
 [settings]
     arch=x86_64
-    build_type=RelWithDebInfo
+    build_type=Debug
     compiler=gcc
     compiler.cppstd=14
     compiler.libcxx=libstdc++11
@@ -19,7 +19,7 @@
 [full_settings]
     arch=x86_64
     arch_build=x86_64
-    build_type=RelWithDebInfo
+    build_type=Debug
     compiler=gcc
     compiler.cppstd=14
     compiler.libcxx=libstdc++11
@@ -28,13 +28,13 @@
     os_build=Linux
 
 [full_requires]
-    boost/1.75.0:732c5b23476be152b6d889260db753ba22a662f1
-    bzip2/1.0.8:ff2ff6bb41ed84283a6634bada252c37f13eb93c
+    boost/1.75.0:1a233f9d40b1342c59d50e7b9d7a169c762b23da
+    bzip2/1.0.8:1d984b241c5c01f748cafe0b37dc9567ed236fef
     cli11/1.9.1:5ab84d6acfe1f23c4fae0ab88f26e3a396351ac9
-    fmt/7.1.2:39ace7e3c21bc9e69beae13f1a8103f52b2710de
-    libiconv/1.16:6b7ff26bfd4c2cf2ccba522bfba2d2e7820e40da
-    spdlog/1.8.2:7186f8ab5ce51072140b19c066af736d367dedae
-    zlib/1.2.11:6b7ff26bfd4c2cf2ccba522bfba2d2e7820e40da
+    fmt/7.1.2:c5ff3d403ed2e81479a761a48eb6a8a53b110c3f
+    libiconv/1.16:23b828d52c0630e6b0b96d2945419feb7843c4f8
+    spdlog/1.8.2:c49e83e5afcae79b031b1eb5d04c7708c6433f45
+    zlib/1.2.11:23b828d52c0630e6b0b96d2945419feb7843c4f8
 
 [full_options]
     boost:asio_no_deprecated=False

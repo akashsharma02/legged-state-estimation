@@ -21,7 +21,7 @@ namespace gtsam {
     class BetweenPointContactFactor : public NoiseModelFactor4<POSE, POSE, POSE, POSE> {
 
         public:
-            typedef POSE T;
+            // typedef POSE T;
 
         private:
             typedef BetweenPointContactFactor<POSE> This;
@@ -33,8 +33,8 @@ namespace gtsam {
             // Serialization
             BetweenPointContactFactor() {}
 
-            BetweenPointContactFactor(const Key& base1, const Key& base2, const Key& contact1,
-            const Key& contact2, const Matrix covariance) :
+            BetweenPointContactFactor(Matrix covariance, Key base1, Key base2, Key contact1,
+            Key contact2, const POSE & measured) :
             Base(noiseModel::Gaussian::Covariance(covariance), base1, base2, contact1, contact2) {}
 
             virtual ~BetweenPointContactFactor() {}
@@ -50,10 +50,10 @@ namespace gtsam {
                 // Stream to s, etc
                 // TODO:
                 std::cout << s << "BetweenPointContactFactor("
-                    << keyFormatter(this->base1()) << ","
-                    << keyFormatter(this->base2()) << ","
-                    << keyFormatter(this->contact1()) << ","
-                    << keyFormatter(this->contact2()) << ")\n";
+                    << keyFormatter(this->key1()) << ","
+                    << keyFormatter(this->key2()) << ","
+                    << keyFormatter(this->key3()) << ","
+                    << keyFormatter(this->key4()) << ")\n";
                 this->noiseModel_->print(" noise model:  ");
             }
 
@@ -75,6 +75,7 @@ namespace gtsam {
 
                 Vector error = posei.rotation().transpose() * (contactj.translation() - contacti.translation());
 
+                // Rx Ry Rz, vx vy vz.
                 // Potentially to swap, based on w and v locations
                 if (H1) {
                     *H1 = Matrix::Zero(3, 6);

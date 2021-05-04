@@ -58,6 +58,7 @@ namespace gtsam {
                 Matrix B = base.rotation().transpose() * contact.rotation().transpose() * dt;
                 measureNoise = B * leg.covSlip * B.transpose();
                 ts_ = ts;
+                makeContact = contact;
             }
 
             ~LegMeasurement() {}
@@ -97,14 +98,15 @@ namespace gtsam {
             LegConfig leg;
             Matrix measureNoise;
             double ts_;
+            Pose3 makeContact;
     };
 
     struct ContactStates
     {
-        int baseMakeContact;
-        int baseBreakContact;
-        int contactMakeContact;
-        int contactBreakContact;
+        uint64_t baseMakeContact;
+        uint64_t baseBreakContact;
+        uint64_t contactMakeContact;
+        uint64_t contactBreakContact;
     };
     
 }
