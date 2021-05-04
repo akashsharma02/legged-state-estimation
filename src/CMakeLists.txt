@@ -36,6 +36,24 @@ target_link_libraries(
   ${PROJECT_NAME}
 )
 
+add_executable(
+  inertial
+  inertialOnly.cpp
+)
+
+target_link_libraries(
+  inertial
+  PRIVATE
+  project_options
+  project_warnings
+  utils
+  CONAN_PKG::fmt
+  CONAN_PKG::spdlog
+  CONAN_PKG::cli11
+  gtsam
+  yaml-cpp
+  ${PROJECT_NAME}
+)
 
 # add_executable(
 #   yamltester
