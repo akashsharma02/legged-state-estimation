@@ -79,7 +79,7 @@ namespace gtsam {
                 // Potentially to swap, based on w and v locations
                 if (H1) {
                     *H1 = Matrix::Zero(3, 6);
-                    H1->block(0, 3, 3, 3) = (Matrix(3, 3) << 0, -error(2), error(1),  error(2), 0, -error(0), -error(1), error(0), 0).finished();
+                    H1->block(0, 0, 3, 3) = (Matrix(3, 3) << 0, -error(2), error(1),  error(2), 0, -error(0), -error(1), error(0), 0).finished();
                 }
 
                 if (H2) {
@@ -88,12 +88,12 @@ namespace gtsam {
 
                 if (H3) {
                     *H3 = Matrix::Zero(3, 6);
-                    H3->block(0, 0, 3, 3) = -posei.rotation().transpose() * contacti.rotation().matrix();
+                    H3->block(0, 3, 3, 3) = -posei.rotation().transpose() * contacti.rotation().matrix();
                 }
 
                 if (H4) {
                     *H4 = Matrix::Zero(3, 6);
-                    H4->block(0, 0, 3, 3) = -posei.rotation().transpose() * contactj.rotation().matrix();
+                    H4->block(0, 3, 3, 3) = -posei.rotation().transpose() * contactj.rotation().matrix();
                 }
 
                 return error;
