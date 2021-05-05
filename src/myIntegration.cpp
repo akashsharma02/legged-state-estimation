@@ -25,19 +25,18 @@
 // Utils 
 #include "fast-cpp-csv-parser/csv.h"
 #include "dataloader.h"
-#include "IMU.h"
 
 #include <gtsam/inference/Symbol.h>
-// #include <gtsam/navigation/CombinedImuFactor.h>
-// #include <gtsam/navigation/ImuFactor.h>
+#include <gtsam/navigation/CombinedImuFactor.h>
+#include <gtsam/navigation/ImuFactor.h>
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
 using namespace gtsam;
 
-// using symbol_shorthand::B; // Bias
-// using symbol_shorthand::V; // Velocity
+using symbol_shorthand::B; // Bias
+using symbol_shorthand::V; // Velocity
 using symbol_shorthand::X; // Body Pose
 
 void saveTrajectory(const Values &, uint64_t, std::string);
@@ -73,6 +72,7 @@ int main(int argc, char* argv[])
     double ts,wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2;
     int flc,frc,blc,brc;
     int idx = 0;
+    bool robotReady = false;
 
     // Load Leg Configs
     std::map<std::string, gtsam::LegConfig> legConfigs = DataLoader::loadLegConfig(configFilePath);
@@ -94,12 +94,15 @@ int main(int argc, char* argv[])
     uint64_t stateCount = 0;
     NavState prevState(priorPose, priorVelocity);
     NavState propState = prevState;
-    // imuBias::ConstantBias prevBias = priorBias;
+    imuBias::ConstantBias prevBias = priorBias;
     
     initialValues.insert(X(stateCount), priorPose);
+    initialValues.insert(V(stateCount), priorVelocity);
+    initialValues.insert(B(stateCount), priorBias);
 
     // Setup FactorGraph
     NonlinearFactorGraph* graph = new NonlinearFactorGraph();
+    double dt = 1. / 200;
     // if (false) {
         ISAM2Params parameters;
         parameters.relinearizeThreshold = 0.01;
@@ -115,6 +118,8 @@ int main(int argc, char* argv[])
     auto biasNoise = noiseModel::Isotropic::Sigma(6, 1e-3);
 
     graph->addPrior(X(stateCount), priorPose, priorPoseNoise);
+    graph->addPrior(V(stateCount), priorVelocity, priorVelNoise);
+    graph->addPrior(B(stateCount), priorBias, biasNoise);
 
     Values result;
     if (debug) {
@@ -127,61 +132,84 @@ int main(int argc, char* argv[])
 
     double x, y, z, i, j, k, w;
     Pose3 lastPose = priorPose;
+    uint64_t lastLPKey = 0;
 
     int imu_cycle = 0;
+    int imu_count = 0;
     int max_imu = 200;
-    ORB_SLAM2::PreintegratedIMU new_meas;
-    new_meas.initialize();
-    cv::Mat g = cv::Mat::zeros(3, 1, CV_64F);
-    new_meas.setGravity(g);
+    int lp_cycle = 0;
+    int max_lp = 10;
 
-    cv::Point3d acc, angVel;
-    Matrix R;
-    Point3 P;
-    Matrix v;
     while (datafile.read_row(
         ts,
         x, y, z, i, j, k, w,
         wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2,flc,frc,blc,brc
         ) && idx++ < maxIdx) {
 
-        if (imu_cycle < max_imu) {
-            imu_cycle++;
-            // imu *= 200;
-            ORB_SLAM2::ImuMeasure meas(ax, ay, az, wx, wy, wz, ts);
-            acc = meas._a;
-            angVel = meas._w;
-            new_meas.integrateMeasurement(acc, angVel, 1./200);
-        } else {
-            imu_cycle = 0;
-            stateCount++;
-            ORB_SLAM2::ImuMeasure meas(ax, ay, az, wx, wy, wz, ts);
-            acc = meas._a;
-            angVel = meas._w;
-            new_meas.integrateMeasurement(acc, angVel, 1./200);
-            R = toMatrix3d(new_meas.getRotation());
-            P = toPoint3(new_meas.getTranslation());
-            Pose3 wTb = Pose3(Rot3(R), P);
-            BetweenFactor<Pose3> btf(X(stateCount - 1), X(stateCount), lastPose.between(wTb), priorPoseNoise);
-            initialValues.insert(X(stateCount), wTb);
-            lastPose = wTb;
-            graph->add(btf);
+        if (true) {
+            if (imu_cycle < max_imu) {
+                imu_cycle++;
+                Vector6 imu = (Vector6() << ax, ay, az, wx, wy, wz).finished();
+                // imu *= 200;
+                preintegrated->integrateMeasurement(imu.head<3>() * 200, imu.tail<3>(), 1. / 200);
+            } else {
+                imu_cycle = 0;
+                imu_count++;
+                stateCount++;
+                Vector6 imu = (Vector6() << ax, ay, az, wx, wy, wz).finished();
+                preintegrated->integrateMeasurement(imu.head<3>() * 200, imu.tail<3>(), 1. / 200);
 
+                auto preintIMU = dynamic_cast<const PreintegratedCombinedMeasurements&>(*preintegrated);
+                CombinedImuFactor imuFactor(
+                    X(stateCount - 1), V(stateCount - 1),
+                    X(stateCount), V(stateCount),
+                    B(stateCount - 1), B(stateCount),
+                    preintIMU
+                );
+
+                graph->add(imuFactor);
+                auto bias = priorBias;
+                graph->add(BetweenFactor<imuBias::ConstantBias>(
+                    B(stateCount - 1), B(stateCount), bias, biasNoise
+                ));
+
+                // propState = preintegrated->predict(prevState, prevBias);
+                // std::cout << "Delta t: " << preintegrated->deltaTij() << std::endl;
+                // std::cout << "propState: " << propState.t() << std::endl;
+                // std::cout << "gt: " << x << "," << y << "," << z << std::endl;
+                initialValues.insert(X(stateCount), propState.pose());
+                initialValues.insert(V(stateCount), propState.v());
+                initialValues.insert(B(stateCount), prevBias);
+                // if (imu_count >= max_lp) {
+                //     imu_count = 0;
+                //     Eigen::Quaternion finRot3(w, i, j, k);
+                //     Rot3 r(finRot3);
+                //     Point3 t(x, y, z);
+                //     Pose3 g = Pose3(r, t);
+                //     BetweenFactor<Pose3> lp(X(lastLPKey), X(stateCount), lastPose.between(g), noiseModel::Diagonal::Sigmas(
+                //         (Vector(6) << 0.001, 0.001, 0.001, 0.001, 0.001, 0.001).finished()));
+                //     graph->add(lp);
+                //     lastLPKey = stateCount;
+                //     lastPose = g;
+                // }
+
+                LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
+                result = optimizer.optimize();
+                prevState = NavState(result.at<Pose3>(X(stateCount)),
+                    result.at<Vector3>(V(stateCount)));
+                prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
+                preintegrated->resetIntegrationAndSetBias(prevBias);
+                // std::cout << "Bias: " << prevBias << std::endl;
+            }
         }
     }
 
-
-    // Add a small final loop closure
-    Eigen::Quaternion finRot3(w, i, j, k);
-    Rot3 r(finRot3);
-    Point3 t(x, y, z);
-    Pose3 finalPose = Pose3(r, t);
-    BetweenFactor<Pose3> lp(X(0), X(stateCount), priorPose.between(finalPose), priorPoseNoise);
-    graph->add(lp);
-
     LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
     result = optimizer.optimize();
+    prevState = NavState(result.at<Pose3>(X(stateCount)),
+        result.at<Vector3>(V(stateCount)));
     saveTrajectory(initialValues, stateCount, outputFile);
+    
 
     std::cout << "Sucessfully Completed" << std::endl;
 }

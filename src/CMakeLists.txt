@@ -52,6 +52,7 @@ target_link_libraries(
   CONAN_PKG::cli11
   gtsam
   yaml-cpp
+  ${OpenCV_LIBS}
   ${PROJECT_NAME}
 )
 

@@ -14,6 +14,11 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/inference/Symbol.h>
+#include "opencv2/core/core.hpp"
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <Eigen/Dense>
+
 namespace gtsam {
 
     Matrix customExpmap(Vector xi, double theta) {
@@ -108,6 +113,21 @@ namespace gtsam {
         uint64_t contactMakeContact;
         uint64_t contactBreakContact;
     };
+
+    Eigen::Matrix<double,3,3> toMatrix3d(const cv::Mat &cvMat3) {
+        Eigen::Matrix<double,3,3> M;
+
+        M << cvMat3.at<float>(0,0), cvMat3.at<float>(0,1), cvMat3.at<float>(0,2),
+            cvMat3.at<float>(1,0), cvMat3.at<float>(1,1), cvMat3.at<float>(1,2),
+            cvMat3.at<float>(2,0), cvMat3.at<float>(2,1), cvMat3.at<float>(2,2);
+
+        return M;
+    }
+
+    inline Point3 toPoint3(const cv::Mat &cvMat) {
+        Point3 p(cvMat.at<double>(0, 0), cvMat.at<double>(1, 0), cvMat.at<double>(2, 0));
+        return p;
+    }
     
 }
 
