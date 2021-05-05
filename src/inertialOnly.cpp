@@ -166,7 +166,6 @@ int main(int argc, char* argv[])
             initialValues.insert(X(stateCount), wTb);
             lastPose = wTb;
             graph->add(btf);
-
         }
     }
 
@@ -176,8 +175,8 @@ int main(int argc, char* argv[])
     Rot3 r(finRot3);
     Point3 t(x, y, z);
     Pose3 finalPose = Pose3(r, t);
-    BetweenFactor<Pose3> lp(X(0), X(stateCount), priorPose.between(finalPose), priorPoseNoise);
-    graph->add(lp);
+    // BetweenFactor<Pose3> lp(X(0), X(stateCount), priorPose.between(finalPose), priorPoseNoise);
+    // graph->add(lp);
 
     LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
     result = optimizer.optimize();
@@ -187,7 +186,6 @@ int main(int argc, char* argv[])
 }
 
 void saveTrajectory(const Values & v, uint64_t stateCount, std::string filename) {
-    // std::string filename = "inertialOnlyTrajectory.txt";
     std::cout << "Saving Base Trajectory to " << filename << std::endl;
     std::ofstream f;
     f.open(filename.c_str());
