@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
                     graph->add(contactFactor);
 
                     // Need to add initial estimate
-                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBase(encoder, legConfigs["fl"]));
+                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBaseExpmap(encoder, legConfigs["fl"]));
                     baseTcontact       = propState.pose().compose(baseTcontact);
                     initialValues.insert(Q(flState.contactMakeContact), fl->makeContact);
                     initialValues.insert(Q(stateCount), baseTcontact);
@@ -324,12 +324,7 @@ int main(int argc, char* argv[])
 
                     // Makes Contact Factor
                     Vector encoder     = (Vector3() << fl0, fl1, fl2).finished();
-                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBase(encoder, legConfigs["fl"]));
-                    Pose3 baseTcontactTest = Pose3(LegMeasurement::efInBaseExpMap(encoder, legConfigs["fl"]));
-
-                    std::cout << baseTcontact << "\n";
-                    std::cout << baseTcontactTest << std::endl;
-
+                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBaseExpmap(encoder, legConfigs["fl"]));
                     baseTcontact       = propState.pose().compose(baseTcontact);
                     // This gives Contact Frame Relative to World position
                     fl = new LegMeasurement(legConfigs["fl"], propState.pose(), baseTcontact, dt, double(ts) / 200.);

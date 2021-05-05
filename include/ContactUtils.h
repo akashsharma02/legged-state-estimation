@@ -78,11 +78,12 @@ namespace gtsam
 
         static Matrix efInBaseExpMap(Vector encoder, const LegConfig& leg)
         {
-            auto g = leg.firstJointInBase;
+            Pose3 g = leg.firstJointInBase;
             for (size_t i = 0; i < encoder.size(); i++)
             {
                 auto twist = leg.twists.at(i) * encoder(i);
-                g = g.Expmap(twist);
+                std::cout << "Encoder" << encoder(i) << "Twist" << i << "\n" << twist << std::endl;
+                g = g * Pose3::Expmap(twist);
             }
             g = g * leg.endEffectorConfiguration0;
             return g.matrix();
@@ -100,26 +101,20 @@ namespace gtsam
             return g.matrix();
         }
 
-        /* Matrix spatialJacobian(Vector encoder, const LegConfig &leg) */
-        /* { */
-        /*     Matrix spatial_jacobian; */
-        /*     auto g = leg.firstJointInBase; */
+        static Matrix baseToContactJacobian(Vector encoder, const LegConfig &leg)
+        {
+            Matrix spatial_jacobian;
+            Pose3 g = leg.firstJointInBase;
 
-        /*     spatial_jacobian.col(0) = leg.twists.at(0); */
-        /*     for(size_t i = 1; i < encoder.size(); i++) */
-        /*     { */
-        /*         auto twist = leg.twists.at(i) * encoder(i); */
-        /*         g = g.Expmap(twist); */
-        /*         spatial_jacobian.col(i) = g.Adjoint(leg.twists.at(i)); */
-        /*     } */
-
-        /*     return spatial_jacobian; */
-        /* } */
-
-        /* Matrix bodyJacobian(Vector encoder, const LegConfig &leg) */
-        /* { */
-        /*     Matrix spatial_jacobian = spatialJacobian(encoder, leg) */
-        /* } */
+            spatial_jacobian.col(0) = leg.twists.at(0);
+            for(size_t i = 1; i < encoder.size(); i++)
+            {
+                auto twist = leg.twists.at(i) * encoder(i);
+                spatial_jacobian.col(i) = g.Adjoint(leg.twists.at(i));
+                g = g * Pose3::Expmap(twist);
+            }
+            return spatial_jacobian;
+        }
 
         // Update Covariance
         // Pose3 iGj i -> j, Pose J in frame of Pose i

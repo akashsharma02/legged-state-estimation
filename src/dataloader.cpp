@@ -11,16 +11,23 @@ namespace DataLoader
         return Eigen::MatrixXd(mat);
     }
 
-    Eigen::VectorXd extractTwist(const YAML::Node& node, std::string attribute, std::string hip_attribute, std::string joint_attribute)
+    Eigen::VectorXd extractTwist(const YAML::Node& node,
+                                 std::string attribute,
+                                 std::string hip_attribute,
+                                 std::string joint_attribute)
     {
-        const std::vector<double> axis = node[attribute].as<std::vector<double>>();
-        const std::vector<double> hip_data = node[hip_attribute].as<std::vector<double>>();
+        const std::vector<double> axis       = node[attribute].as<std::vector<double>>();
+        const std::vector<double> hip_data   = node[hip_attribute].as<std::vector<double>>();
         const std::vector<double> joint_data = node[joint_attribute].as<std::vector<double>>();
 
         Eigen::Vector3d omega(axis[0], axis[1], axis[2]);
-        Eigen::Vector3d position(joint_data[0] - hip_data[0] , joint_data[1] - hip_data[1], joint_data[2] - hip_data[2]);
+        Eigen::Vector3d position(joint_data[0] - hip_data[0], joint_data[1] - hip_data[1], joint_data[2] - hip_data[2]);
 
-        auto rotated_pos = - omega.cross(position);
+        Eigen::Vector3d rotated_pos = position.cross(omega);
+
+        std::cout << "Omega: " << omega << "\n"
+                  << "Position: " << position << "\n"
+                  << "Rotated Position: " << rotated_pos << std::endl;
         return (Eigen::VectorXd(6) << omega, rotated_pos).finished();
     }
 
@@ -34,25 +41,24 @@ namespace DataLoader
 
     gtsam::LegConfig getConfig(const YAML::Node& node, const std::string& leg_name)
     {
-
         std::vector<Eigen::VectorXd> twists;
         twists.push_back(extractTwist(node, "r1", leg_name + "hTul", leg_name + "hTul"));
         twists.push_back(extractTwist(node, "r2", leg_name + "hTul", leg_name + "ulTll"));
         twists.push_back(extractTwist(node, "r3", leg_name + "hTul", leg_name + "llTf"));
 
-        gtsam::Pose3 jTul             = dataToPose(extractMatrix(node, leg_name + "hTul"));
-        gtsam::Pose3 ulTll            = dataToPose(extractMatrix(node, leg_name + "ulTll"));
-        gtsam::Pose3 llTf             = dataToPose(extractMatrix(node, leg_name + "llTf"));
+        gtsam::Pose3 jTul  = dataToPose(extractMatrix(node, leg_name + "hTul"));
+        gtsam::Pose3 ulTll = dataToPose(extractMatrix(node, leg_name + "ulTll"));
+        gtsam::Pose3 llTf  = dataToPose(extractMatrix(node, leg_name + "llTf"));
+        gtsam::Pose3 hTf   = dataToPose(extractMatrix(node, leg_name + "hTf"));
 
-        //TODO(Ask ruoyang): The Contact surface is a cylinder
-        gtsam::Pose3 endEffectorConfiguration0 = jTul * ulTll * llTf * gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, -0.0234, 0));
+        // TODO(Ask ruoyang): The Contact surface is a cylinder
+        gtsam::Pose3 endEffectorConfiguration0 = hTf * gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, -0.0234, 0));
 
         gtsam::Pose3 firstJointInBase = dataToPose(extractMatrix(node, leg_name + "bTh"));
 
         gtsam::LegConfig config(twists, firstJointInBase, endEffectorConfiguration0, Eigen::Matrix3d::Identity());
         return config;
     }
-
 
     std::map<std::string, gtsam::LegConfig> loadLegConfig(const std::string& configPath)
     {
