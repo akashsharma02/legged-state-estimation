@@ -1,30 +1,30 @@
 /******************************************************************************
-* File:             test.cpp
-*
-* Author:           Ruoyang Xu
-* Created:          04/28/2021
-* Description:      Test files for Point Contact Factor
-*****************************************************************************/
+ * File:             test.cpp
+ *
+ * Author:           Ruoyang Xu
+ * Created:          04/28/2021
+ * Description:      Test files for Point Contact Factor
+ *****************************************************************************/
 
+#include <gtsam/base/Lie.h>
+#include <string.h>
 #include <utils.h>
-#include <CLI/CLI.hpp>
 #include <yaml-cpp/yaml.h>
+#include <CLI/CLI.hpp>
 #include <Eigen/Core>
 #include <Eigen/Dense>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <map>
-#include <gtsam/base/Lie.h>
 #include <vector>
-#include <string.h>
 
 // Factors
-#include "ContactUtils.h"
 #include "BetweenContactFactor.h"
+#include "ContactUtils.h"
 
-// Utils 
-#include "fast-cpp-csv-parser/csv.h"
+// Utils
 #include "dataloader.h"
+#include "fast-cpp-csv-parser/csv.h"
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/navigation/CombinedImuFactor.h>
@@ -35,22 +35,22 @@
 
 using namespace gtsam;
 
-using symbol_shorthand::B; // Bias
-using symbol_shorthand::V; // Velocity
-using symbol_shorthand::X; // Body Pose
+using symbol_shorthand::B;  // Bias
+using symbol_shorthand::V;  // Velocity
+using symbol_shorthand::X;  // Body Pose
 // Welp, Symbol only takes char
 // Gonna use Keyboard location
-using symbol_shorthand::Q; // Fl Foot Pose
-using symbol_shorthand::P; // FR Foot Pose
-using symbol_shorthand::A; // BL Foot Pose
-using symbol_shorthand::L; // BR Foot Pose
+using symbol_shorthand::A;  // BL Foot Pose
+using symbol_shorthand::L;  // BR Foot Pose
+using symbol_shorthand::P;  // FR Foot Pose
+using symbol_shorthand::Q;  // Fl Foot Pose
 
-void saveTrajectory(const Values &, uint64_t);
+void saveTrajectory(const Values&, uint64_t);
 
 int main(int argc, char* argv[])
 {
     utils::setLogPattern();
-    CLI::App app{"Test file for Multi Leg Contact Factor"};
+    CLI::App app{ "Test file for Multi Leg Contact Factor" };
 
     std::string configFilePath("");
     std::string datasetFilePath("");
@@ -67,50 +67,69 @@ int main(int argc, char* argv[])
     // Setup Dataset
     io::CSVReader<23 + 7> datafile(datasetFilePath);
     datafile.read_header(io::ignore_extra_column,
-        "ts",
-        "x","y","z","i","j","k","w",
-        "wx","wy","wz","ax","ay","az","fl0","fl1","fl2",
-        "fr0","fr1","fr2","bl0","bl1","bl2","br0","br1","br2",
-        "flc","frc","blc","brc"
-    );
-    double ts,wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2;
-    int flc,frc,blc,brc;
-    int idx = 0;
+                         "ts",
+                         "x",
+                         "y",
+                         "z",
+                         "i",
+                         "j",
+                         "k",
+                         "w",
+                         "wx",
+                         "wy",
+                         "wz",
+                         "ax",
+                         "ay",
+                         "az",
+                         "fl0",
+                         "fl1",
+                         "fl2",
+                         "fr0",
+                         "fr1",
+                         "fr2",
+                         "bl0",
+                         "bl1",
+                         "bl2",
+                         "br0",
+                         "br1",
+                         "br2",
+                         "flc",
+                         "frc",
+                         "blc",
+                         "brc");
+    double ts, wx, wy, wz, ax, ay, az, fl0, fl1, fl2, fr0, fr1, fr2, bl0, bl1, bl2, br0, br1, br2;
+    int flc, frc, blc, brc;
+    int idx         = 0;
     bool robotReady = false;
 
     // Load Leg Configs
     std::map<std::string, gtsam::LegConfig> legConfigs = DataLoader::loadLegConfig(configFilePath);
 
     // Setup IMU Configs
-    auto p = DataLoader::loadIMUConfig(imuConfigPath);
+    auto p         = DataLoader::loadIMUConfig(imuConfigPath);
     auto priorBias = DataLoader::getIMUBias(imuConfigPath);
     // This is for the Base
-    std::shared_ptr<PreintegrationType> preintegrated = 
-        std::make_shared<PreintegratedImuMeasurements>(p, priorBias);
+    std::shared_ptr<PreintegrationType> preintegrated = std::make_shared<PreintegratedImuMeasurements>(p, priorBias);
 
     // Logging for the contact Frames, they are not factors, just preintegrated measurements
-    auto pQ = DataLoader::loadIMUConfig(imuConfigPath);
-    auto pP = DataLoader::loadIMUConfig(imuConfigPath);
-    auto pA = DataLoader::loadIMUConfig(imuConfigPath);
-    auto pL = DataLoader::loadIMUConfig(imuConfigPath);
-    std::shared_ptr<PreintegrationType> imuLogQ = 
-        std::make_shared<PreintegratedImuMeasurements>(pQ, priorBias);
-    std::shared_ptr<PreintegrationType> imuLogP = 
-        std::make_shared<PreintegratedImuMeasurements>(pP, priorBias);
-    std::shared_ptr<PreintegrationType> imuLogA = 
-        std::make_shared<PreintegratedImuMeasurements>(pA, priorBias);
-    std::shared_ptr<PreintegrationType> imuLogL = 
-        std::make_shared<PreintegratedImuMeasurements>(pL, priorBias);
+    auto pQ                                     = DataLoader::loadIMUConfig(imuConfigPath);
+    auto pP                                     = DataLoader::loadIMUConfig(imuConfigPath);
+    auto pA                                     = DataLoader::loadIMUConfig(imuConfigPath);
+    auto pL                                     = DataLoader::loadIMUConfig(imuConfigPath);
+    std::shared_ptr<PreintegrationType> imuLogQ = std::make_shared<PreintegratedImuMeasurements>(pQ, priorBias);
+    std::shared_ptr<PreintegrationType> imuLogP = std::make_shared<PreintegratedImuMeasurements>(pP, priorBias);
+    std::shared_ptr<PreintegrationType> imuLogA = std::make_shared<PreintegratedImuMeasurements>(pA, priorBias);
+    std::shared_ptr<PreintegrationType> imuLogL = std::make_shared<PreintegratedImuMeasurements>(pL, priorBias);
 
     // Setup Prior Values
-    Rot3 priorRotation(I_3x3); // Default Always identity
-    Point3 priorPoint(0, 0, 0.194213); // This number is approximately rest height
+    Rot3 priorRotation(I_3x3);          // Default Always identity
+    Point3 priorPoint(0, 0, 0.194213);  // This number is approximately rest height
     Pose3 priorPose(priorRotation, priorPoint);
     Eigen::Vector3d priorVelocity(0, 0, 0);
     Values initialValues;
     uint64_t stateCount = 0;
     NavState prevState(priorPose, priorVelocity);
-    NavState propState = prevState;
+    NavState propState             = prevState;
     imuBias::ConstantBias prevBias = priorBias;
 
     // Those are the approximate rest location at spawn
@@ -123,7 +142,7 @@ int main(int argc, char* argv[])
     Pose3 priorbl(footRotation, flPoint);
     Point3 brPoint(-0.135, -0.102, 0);
     Pose3 priorbr(footRotation, flPoint);
-    
+
     initialValues.insert(X(stateCount), priorPose);
     initialValues.insert(V(stateCount), priorVelocity);
     initialValues.insert(B(stateCount), priorBias);
@@ -134,20 +153,19 @@ int main(int argc, char* argv[])
 
     // Setup FactorGraph
     NonlinearFactorGraph* graph = new NonlinearFactorGraph();
-    double dt = 1. / 200;
+    double dt                   = 1. / 200;
     // if (false) {
-        ISAM2Params parameters;
-        parameters.relinearizeThreshold = 0.01;
-        parameters.relinearizeSkip = 1;
-        ISAM2* isam2 = new ISAM2(parameters);
+    ISAM2Params parameters;
+    parameters.relinearizeThreshold = 0.01;
+    parameters.relinearizeSkip      = 1;
+    ISAM2* isam2                    = new ISAM2(parameters);
     // }
 
     // Setup Prior Factors
     auto priorPoseNoise = noiseModel::Diagonal::Sigmas(
-      (Vector(6) << 0.001, 0.001, 0.001, 0.05, 0.05, 0.05)
-          .finished());  // rad,rad,rad, m, m, m
+        (Vector(6) << 0.001, 0.001, 0.001, 0.05, 0.05, 0.05).finished());  // rad,rad,rad, m, m, m
     auto priorVelNoise = noiseModel::Isotropic::Sigma(3, 0.001);
-    auto biasNoise = noiseModel::Isotropic::Sigma(6, 1e-3);
+    auto biasNoise     = noiseModel::Isotropic::Sigma(6, 1e-3);
 
     graph->addPrior(X(stateCount), priorPose, priorPoseNoise);
     graph->addPrior(V(stateCount), priorVelocity, priorVelNoise);
@@ -167,9 +185,10 @@ int main(int argc, char* argv[])
     ContactStates flState;
 
     Values result;
-    if (debug) {
+    if (debug)
+    {
         graph->print("\nFactor Graph:\n");
-        initialValues.print("\nInitial Estimate:\n"); 
+        initialValues.print("\nInitial Estimate:\n");
         LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
         result = optimizer.optimize();
         result.print("Final Result:\n");
@@ -177,27 +196,57 @@ int main(int argc, char* argv[])
 
     double x, y, z, i, j, k, w;
 
-    while (datafile.read_row(
-        ts,
-        x, y, z, i, j, k, w,
-        wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2,flc,frc,blc,brc
-        ) && idx++ < maxIdx) {
-
+    while (datafile.read_row(ts,
+                             x,
+                             y,
+                             z,
+                             i,
+                             j,
+                             k,
+                             w,
+                             wx,
+                             wy,
+                             wz,
+                             ax,
+                             ay,
+                             az,
+                             fl0,
+                             fl1,
+                             fl2,
+                             fr0,
+                             fr1,
+                             fr2,
+                             bl0,
+                             bl1,
+                             bl2,
+                             br0,
+                             br1,
+                             br2,
+                             flc,
+                             frc,
+                             blc,
+                             brc) &&
+           idx++ < maxIdx)
+    {
         // Wait until All Four legs are on the ground
         // since they were initially floating
-        if (flc == 1 && frc == 1 && blc == 1 && brc == 1 && !robotReady) {
+        if (flc == 1 && frc == 1 && blc == 1 && brc == 1 && !robotReady)
+        {
             // Mark ready
             robotReady = true;
             std::cout << "Marked Ready on " << idx << " th line" << std::endl;
 
             // Priors are already added
-        } else if (!robotReady) {
+        }
+        else if (!robotReady)
+        {
             // If not ready and also not on the ground, skip the rest
             continue;
         }
 
-        if (flcl == flc) {
-        //  && frcl == frc && blcl == blc && brcl == brc) {
+        if (flcl == flc)
+        {
+            //  && frcl == frc && blcl == blc && brcl == brc) {
             // Contact Sensor has no change
             Vector6 imu = (Vector6() << ax, ay, az, wx, wy, wz).finished();
             preintegrated->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
@@ -206,26 +255,22 @@ int main(int argc, char* argv[])
             imuLogP->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
             imuLogA->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
             imuLogL->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
-        } else {
-
+        }
+        else
+        {
             // std::cout << "Handle IMU Factor" << std::endl;
 
             // Handle IMU Factors
             stateCount++;
             Vector6 imu = (Vector6() << ax, ay, az, wx, wy, wz).finished();
             preintegrated->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
-            
+
             auto preintIMU = dynamic_cast<const PreintegratedImuMeasurements&>(*preintegrated);
             ImuFactor imuFactor(
-                X(stateCount - 1), V(stateCount - 1),
-                X(stateCount), V(stateCount),
-                B(stateCount - 1), preintIMU
-            );
+                X(stateCount - 1), V(stateCount - 1), X(stateCount), V(stateCount), B(stateCount - 1), preintIMU);
             graph->add(imuFactor);
             auto bias = priorBias;
-            graph->add(BetweenFactor<imuBias::ConstantBias>(
-                B(stateCount - 1), B(stateCount), bias, biasNoise
-            ));
+            graph->add(BetweenFactor<imuBias::ConstantBias>(B(stateCount - 1), B(stateCount), bias, biasNoise));
 
             propState = preintegrated->predict(prevState, prevBias);
             initialValues.insert(X(stateCount), propState.pose());
@@ -234,56 +279,71 @@ int main(int argc, char* argv[])
 
             // *******************************************
             // Handle the Legs
-            if (false) {
-            if (flcl == 1 && flc == 0) {
-                // Front Left Leg breaks contact
-                if (!fl) {
-                    std::cout << "FL Pointer null" << std::endl;
-                    return 1;
+            if (true)
+            {
+                if (flcl == 1 && flc == 0)
+                {
+                    // Front Left Leg breaks contact
+                    if (!fl)
+                    {
+                        std::cout << "FL Pointer null" << std::endl;
+                        return 1;
+                    }
+
+                    Vector encoder = (Vector3() << fl0, fl1, fl2).finished();
+                    imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
+                    fl->integrateNewMeasurement(imuLogQ->deltaRij(), encoder, double(ts) / 200);
+                    Matrix noiseMatrix = fl->getNoise();
+                    BetweenPointContactFactor contactFactor(noiseMatrix,
+                                                            X(flState.baseMakeContact),
+                                                            X(stateCount),
+                                                            Q(flState.contactMakeContact),
+                                                            Q(stateCount),
+                                                            Pose3());
+                    graph->add(contactFactor);
+
+                    // Need to add initial estimate
+                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBase(encoder, legConfigs["fl"]));
+                    baseTcontact       = propState.pose().compose(baseTcontact);
+                    initialValues.insert(Q(flState.contactMakeContact), fl->makeContact);
+                    initialValues.insert(Q(stateCount), baseTcontact);
+
+                    imuLogQ->resetIntegrationAndSetBias(prevBias);
                 }
+                else if (flcl == 0 && flc == 1)
+                {
+                    // Front Left Leg makes contact
 
-                Vector encoder = (Vector3() << fl0, fl1, fl2).finished();
-                imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
-                fl->integrateNewMeasurement(imuLogQ->deltaRij(), encoder, double(ts) / 200);
-                Matrix noiseMatrix = fl->getNoise();
-                BetweenPointContactFactor contactFactor(noiseMatrix, X(flState.baseMakeContact), X(stateCount), 
-                    Q(flState.contactMakeContact), Q(stateCount), Pose3());
-                graph->add(contactFactor);
+                    // *************************
+                    // Add Forward kinematics factor
 
-                // Need to add initial estimate
-                Pose3 baseTcontact = Pose3(LegMeasurement::efInBase(encoder, legConfigs["fl"]));
-                baseTcontact = propState.pose().compose(baseTcontact);
-                initialValues.insert(Q(flState.contactMakeContact), fl->makeContact);
-                initialValues.insert(Q(stateCount), baseTcontact);
+                    // Insert initialValues etc
+                    // *************************
+                    flState.baseMakeContact    = stateCount;
+                    flState.contactMakeContact = stateCount;
 
-                imuLogQ->resetIntegrationAndSetBias(prevBias);
-            } else if (flcl == 0 && flc == 1) {
-                // Front Left Leg makes contact
+                    // Makes Contact Factor
+                    Vector encoder     = (Vector3() << fl0, fl1, fl2).finished();
+                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBase(encoder, legConfigs["fl"]));
+                    Pose3 baseTcontactTest = Pose3(LegMeasurement::efInBaseExpMap(encoder, legConfigs["fl"]));
 
-                // *************************
-                // Add Forward kinematics factor
+                    std::cout << baseTcontact << "\n";
+                    std::cout << baseTcontactTest << std::endl;
 
-                // Insert initialValues etc
-                // *************************
-                flState.baseMakeContact = stateCount;
-                flState.contactMakeContact = stateCount;
-
-                // Makes Contact Factor
-                Vector encoder = (Vector3() << fl0, fl1, fl2).finished();
-                Pose3 baseTcontact = Pose3(LegMeasurement::efInBase(encoder, legConfigs["fl"]));
-                baseTcontact = propState.pose().compose(baseTcontact);
-                // This gives Contact Frame Relative to World position
-                fl = new LegMeasurement(legConfigs["fl"], propState.pose(), baseTcontact, dt, double(ts) / 200.);
-                imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
-            } else {
-                // No change
-                imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
+                    baseTcontact       = propState.pose().compose(baseTcontact);
+                    // This gives Contact Frame Relative to World position
+                    fl = new LegMeasurement(legConfigs["fl"], propState.pose(), baseTcontact, dt, double(ts) / 200.);
+                    imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
+                }
+                else
+                {
+                    // No change
+                    imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
+                }
             }
-            }
-
 
             // *******************************************
-            
+
             // LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
             // result = optimizer.optimize();
             // prevState = NavState(result.at<Pose3>(X(stateCount)),
@@ -296,20 +356,19 @@ int main(int argc, char* argv[])
             result = isam2->calculateEstimate();
             graph->resize(0);
             initialValues.clear();
-            prevState = NavState(result.at<Pose3>(X(stateCount)),
-                result.at<Vector3>(V(stateCount)));
-            prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
+            prevState = NavState(result.at<Pose3>(X(stateCount)), result.at<Vector3>(V(stateCount)));
+            prevBias  = result.at<imuBias::ConstantBias>(B(stateCount));
             preintegrated->resetIntegrationAndSetBias(prevBias);
         }
 
         // if ready
-            // If contact sensor no changes
-                // accumulate IMU Measurment
-            // if contact sensor changes
-                // Create New Node in the Factor Graph
-                    // IMU Factor
-                    // Point Contact Factor
-                    // Forward Kinematic Factor
+        // If contact sensor no changes
+        // accumulate IMU Measurment
+        // if contact sensor changes
+        // Create New Node in the Factor Graph
+        // IMU Factor
+        // Point Contact Factor
+        // Forward Kinematic Factor
 
         flcl = flc;
         frcl = frc;
@@ -331,23 +390,22 @@ int main(int argc, char* argv[])
     //     result.at<Vector3>(V(stateCount)));
     // prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
     // preintegrated->resetIntegrationAndSetBias(prevBias);
-            
 
     isam2->update(*graph, initialValues);
     isam2->update();
     result = isam2->calculateEstimate();
     graph->resize(0);
     initialValues.clear();
-    prevState = NavState(result.at<Pose3>(X(stateCount)),
-        result.at<Vector3>(V(stateCount)));
-    prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
+    prevState = NavState(result.at<Pose3>(X(stateCount)), result.at<Vector3>(V(stateCount)));
+    prevBias  = result.at<imuBias::ConstantBias>(B(stateCount));
     preintegrated->resetIntegrationAndSetBias(prevBias);
 
     saveTrajectory(result, stateCount);
     std::cout << "Sucessfully Completed" << std::endl;
 }
 
-void saveTrajectory(const Values & v, uint64_t stateCount) {
+void saveTrajectory(const Values& v, uint64_t stateCount)
+{
     std::string filename = "Trajectory.txt";
     std::cout << "Saving Base Trajectory to " << filename << std::endl;
     std::ofstream f;
@@ -355,12 +413,12 @@ void saveTrajectory(const Values & v, uint64_t stateCount) {
 
     Pose3 base;
     f << "x,y,z" << std::endl;
-    for (uint64_t i = 0; i < stateCount; i++) {
-        base = v.at<Pose3>(X(i));
+    for (uint64_t i = 0; i < stateCount; i++)
+    {
+        base   = v.at<Pose3>(X(i));
         auto t = base.translation();
         f << t(0) << "," << t(1) << "," << t(2) << std::endl;
     }
     f.close();
     std::cout << "Trajectory Saved!" << std::endl;
-    
 }

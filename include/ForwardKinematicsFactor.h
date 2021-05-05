@@ -1,13 +1,12 @@
 /******************************************************************************
- * File:             BetweenContactFactor.h
- *
- * Author:           Ruoyang Xu
- * Created:          04/27/2021
- * Description:      Implementation of Contact Factor
- *****************************************************************************/
-
-#ifndef BETWEENCONTACT_FACTOR
-#define BETWEENCONTACT_FACTOR
+* File:             ForwardKinematicsFactor.h
+*
+* Author:           Akash Sharma
+* Created:          05/05/21
+* Description:      Implementation of Forward Kinematics Factor for legged robots
+*****************************************************************************/
+#ifndef FORWARD_KINEMATICS_FACTOR_H
+#define FORWARD_KINEMATICS_FACTOR_H
 
 #include <gtsam/base/Lie.h>
 #include <gtsam/base/Testable.h>
@@ -18,27 +17,27 @@
 namespace gtsam
 {
     template<class POSE>
-    class BetweenPointContactFactor : public NoiseModelFactor4<POSE, POSE, POSE, POSE>
+    class ForwardKinematicsFactor : public NoiseModelFactor2<POSE, POSE>
     {
        public:
         // typedef POSE T;
 
        private:
-        typedef BetweenPointContactFactor<POSE> This;
-        typedef NoiseModelFactor4<POSE, POSE, POSE, POSE> Base;
+        typedef ForwardKinematicsFactor<POSE> This;
+        typedef NoiseModelFactor2<POSE, POSE> Base;
 
        public:
-        typedef typename boost::shared_ptr<BetweenPointContactFactor> shared_ptr;
+        typedef typename boost::shared_ptr<ForwardKinematicsFactor> shared_ptr;
 
         // Serialization
-        BetweenPointContactFactor() {}
+        ForwardKinematicsFactor() {}
 
-        BetweenPointContactFactor(Matrix covariance, Key base1, Key base2, Key contact1, Key contact2, const POSE& measured)
+        ForwardKinematicsFactor(Matrix covariance, Key base_frame, Key contact_frame, const POSE& measured)
             : Base(noiseModel::Gaussian::Covariance(covariance), base1, base2, contact1, contact2)
         {
         }
 
-        virtual ~BetweenPointContactFactor() {}
+        virtual ~ForwardKinematicsFactor() {}
 
         // Return deep copy by constructing a shared pointer
         gtsam::NonlinearFactor::shared_ptr clone() const override
@@ -50,8 +49,7 @@ namespace gtsam
         {
             // Stream to s, etc
             // TODO:
-            std::cout << s << "BetweenPointContactFactor(" << keyFormatter(this->key1()) << "," << keyFormatter(this->key2())
-                      << "," << keyFormatter(this->key3()) << "," << keyFormatter(this->key4()) << ")\n";
+            std::cout << s << "ForwardKinematicsFactor(" << keyFormatter(this->key1()) << "," << keyFormatter(this->key2()) ")\n";
             this->noiseModel_->print(" noise model:  ");
         }
 
@@ -68,15 +66,17 @@ namespace gtsam
         }
 
         typedef Eigen::Matrix<double, 3, 1> Vector3;
-        Vector evaluateError(const Pose3& posei,
-                             const Pose3& posej,
-                             const Pose3& contacti,
-                             const Pose3& contactj,
+        Vector evaluateError(const POSE& p1,
+                             const POSE& p2,
                              boost::optional<Matrix&> H1 = boost::none,
-                             boost::optional<Matrix&> H2 = boost::none,
-                             boost::optional<Matrix&> H3 = boost::none,
-                             boost::optional<Matrix&> H4 = boost::none) const override
+                             boost::optional<Matrix&> H2 = boost::none) const override
         {
+
+
+            //! R_i^\top C_i and R_i^\top (d_i - p_i)
+            POSE hx = p1.between(p2, H1, H2);
+
+            measured_
             Vector error = posei.rotation().transpose() * (contactj.translation() - contacti.translation());
 
             // Rx Ry Rz, vx vy vz.
@@ -108,9 +108,9 @@ namespace gtsam
             return error;
         }
 
-        // const VALUE& measured() const {
-        //     return measured_;
-        // }
+        const POSE& measured() const {
+             return measured_;
+        }
 
         std::size_t size() const { return 4; }
 
@@ -121,3 +121,5 @@ namespace gtsam
 }  // namespace gtsam
 
 #endif
+
+#endif /* ifndef FORWARD_KINEMATICS_FACTOR_H */

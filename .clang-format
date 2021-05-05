@@ -1,0 +1,28 @@
+---
+BasedOnStyle: Google
+AlignConsecutiveMacros: true
+AlignConsecutiveAssignments: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortBlocksOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: true
+AllowShortBlocksOnASingleLine: true
+AlignTrailingComments: true
+BreakBeforeBraces: Allman
+Cpp11BracedListStyle: false
+ColumnLimit: 125
+IndentWidth: 4
+IncludeBlocks: Preserve
+FixNamespaceComments: true
+NamespaceIndentation: All
+SpaceAfterTemplateKeyword: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+AlignAfterOpenBracket: Align
+BinPackArguments: false
+BinPackParameters: false
+Standard: Cpp11
+...

@@ -22,7 +22,7 @@
 #include "ContactUtils.h"
 #include "BetweenContactFactor.h"
 
-// Utils 
+// Utils
 #include "fast-cpp-csv-parser/csv.h"
 #include "dataloader.h"
 
@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
     auto priorBias = DataLoader::getIMUBias(imuConfigPath);
     // imuBias::ConstantBias zero_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
     // This is for the Base
-    std::shared_ptr<PreintegrationType> preintegrated = 
+    std::shared_ptr<PreintegrationType> preintegrated =
         std::make_shared<PreintegratedCombinedMeasurements>(p, priorBias);
 
     // Setup Prior Values
@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
     NavState prevState(priorPose, priorVelocity);
     NavState propState = prevState;
     imuBias::ConstantBias prevBias = priorBias;
-    
+
     initialValues.insert(X(stateCount), priorPose);
     initialValues.insert(V(stateCount), priorVelocity);
     initialValues.insert(B(stateCount), priorBias);
@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
     Values result;
     if (debug) {
         graph->print("\nFactor Graph:\n");
-        initialValues.print("\nInitial Estimate:\n"); 
+        initialValues.print("\nInitial Estimate:\n");
         LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
         result = optimizer.optimize();
         result.print("Final Result:\n");
@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
     prevState = NavState(result.at<Pose3>(X(stateCount)),
         result.at<Vector3>(V(stateCount)));
     saveTrajectory(initialValues, stateCount, outputFile);
-    
+
 
     std::cout << "Sucessfully Completed" << std::endl;
 }
@@ -229,5 +229,5 @@ void saveTrajectory(const Values & v, uint64_t stateCount, std::string filename)
     }
     f.close();
     std::cout << "Trajectory Saved!" << std::endl;
-    
+
 }
