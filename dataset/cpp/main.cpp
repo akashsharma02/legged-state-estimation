@@ -7,7 +7,7 @@
 
 #define CSV_IO_NO_THREAD
 
-#include "fast-cpp-csv-parser/csv.h"
+#include <fast-cpp-csv-parser/csv.h>
 
 void estimateGravity(cv::Mat orientation) {
 
@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
 
     // auto options("PreIMU Test", "Testing IMU Preintegration");
     cxxopts::Options options("MyProgram", "One line description of MyProgram");
-    options.add_options() 
+    options.add_options()
         ("f,file", "File name", cxxopts::value<std::string>()->default_value("../data/sequence3.txt"))
         ("m,maxIdx", "Max Index", cxxopts::value<int>()->default_value("500"))
         ;
@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
     int pl;
     double ts;
     int idx = 0;
-    
+
     std::vector<ORB_SLAM2::ImuMeasure> cum_meas;
     cum_meas.reserve(100);
     std::vector<ORB_SLAM2::PreintegratedIMU> final_Imus;
@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
                 //         dt = cum_meas.at(i + 1)._ts - last_ts;
                 //     } else if (i == (n - 1)) {
                 //         dt = last_ts - cum_meas.at(i + 1)._ts;
-                //     } else { 
+                //     } else {
                 //         // Averaging ?
                 //         dt = cum_meas.at(i + 1)._ts - cum_meas.at(i)._ts;
                 //     }

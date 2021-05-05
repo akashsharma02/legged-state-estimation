@@ -39,7 +39,6 @@ run_conan()
 find_package(Eigen3 3.3 REQUIRED)
 find_package(GTSAM 4.1 REQUIRED)
 find_package(OpenCV 4.0 REQUIRED)
-find_package(yaml-cpp 0.6.0 PATHS thirdparty/yaml-cpp)
 
 include_directories(
     ${PROJECT_SOURCE_DIR}
@@ -55,7 +54,8 @@ add_library(${PROJECT_NAME} SHARED
 target_link_libraries(${PROJECT_NAME}
     ${OpenCV_LIBS}
     ${EIGEN3_LIBS}
-    yaml-cpp
+    CONAN_PKG::yaml-cpp
+    CONAN_PKG::fast-cpp-csv-parser
     gtsam
 )
 # ----------------------- Build options -------------------------------------

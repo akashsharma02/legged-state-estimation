@@ -25,6 +25,8 @@ macro(run_conan)
     fmt/7.1.2
     spdlog/1.8.2
     boost/1.75.0 #TODO: (Akash) Remove later after removing program options in run_dgs
+    yaml-cpp/0.6.3
+    fast-cpp-csv-parser/cci.20200830
     # gtsam/4.0.3
     OPTIONS
     ${CONAN_EXTRA_OPTIONS}

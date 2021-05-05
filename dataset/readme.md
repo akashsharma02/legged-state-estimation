@@ -10,7 +10,7 @@ dataset/
     config.py
     separate.py
     ...
-```     
+```
 
 ## Verify Sanity of the data
 
@@ -19,7 +19,7 @@ dataset/
 To show approximate ground truth plots. There are some small vertical displacements over time,
 I tried eliminating them through more careful control but they don't seem to be going away.
 I suspect it is something with the Bezier control, and since they are in the scale of 0.01m,
-I feel like it is relatively trivial. 
+I feel like it is relatively trivial.
 
 ## Simulating IMU Noise
 

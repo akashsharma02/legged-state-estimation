@@ -241,6 +241,10 @@
    "False"
   ],
   [
+   "fast-cpp-csv-parser:with_thread",
+   "True"
+  ],
+  [
    "fmt:fPIC",
    "True"
   ],
@@ -289,12 +293,20 @@
    "False"
   ],
   [
+   "yaml-cpp:fPIC",
+   "True"
+  ],
+  [
+   "yaml-cpp:shared",
+   "False"
+  ],
+  [
    "zlib:fPIC",
    "True"
   ],
   [
    "zlib:minizip",
-   "deprecated"
+   "False"
   ],
   [
    "zlib:shared",
