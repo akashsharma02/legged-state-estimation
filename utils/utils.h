@@ -17,17 +17,17 @@
 #include <gtsam/inference/Symbol.h>
 
 template<class S, class C, typename = void>
-struct is_streamable : ::std::false_type
+struct is_printable : ::std::false_type
 {
 };
 
 template<class S, class C>
-struct is_streamable<S, C, decltype(void(std::declval<S &>() << std::declval<C const &>()))> : ::std::true_type
+struct is_printable<S, C, decltype(void(std::declval<S &>() << std::declval<C const &>()))> : ::std::true_type
 {
 };
 
 template<typename S, typename C>
-inline constexpr bool is_streamable_v = is_streamable<S, C>::value;
+inline constexpr bool is_printable_v = is_printable<S, C>::value;
 
 namespace utils
 {
@@ -41,7 +41,7 @@ namespace utils
         });
     }
 
-    template<class VecElem, typename = std::enable_if_t<is_streamable_v<std::fstream, VecElem>>>
+    template<class VecElem, typename = std::enable_if_t<is_printable_v<std::fstream, VecElem>>>
     void writeVecToFile(const std::vector<VecElem> &vec, const std::string &filename)
     {
         std::fstream stream(filename.c_str(), std::fstream::out);
