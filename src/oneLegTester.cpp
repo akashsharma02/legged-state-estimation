@@ -303,9 +303,10 @@ int main(int argc, char* argv[])
                     graph->add(contactFactor);
 
                     // Need to add initial estimate
-                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBaseExpmap(encoder, legConfigs["fl"]));
+                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBaseExpMap(encoder, legConfigs["fl"]));
                     baseTcontact       = propState.pose().compose(baseTcontact);
-                    initialValues.insert(Q(flState.contactMakeContact), fl->makeContact);
+                    /* initialValues.insert(Q(flState.contactMakeContact), fl->makeContact); */
+
                     initialValues.insert(Q(stateCount), baseTcontact);
 
                     imuLogQ->resetIntegrationAndSetBias(prevBias);
@@ -317,6 +318,8 @@ int main(int argc, char* argv[])
                     // *************************
                     // Add Forward kinematics factor
 
+
+
                     // Insert initialValues etc
                     // *************************
                     flState.baseMakeContact    = stateCount;
@@ -324,11 +327,20 @@ int main(int argc, char* argv[])
 
                     // Makes Contact Factor
                     Vector encoder     = (Vector3() << fl0, fl1, fl2).finished();
-                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBaseExpmap(encoder, legConfigs["fl"]));
-                    baseTcontact       = propState.pose().compose(baseTcontact);
+
+                    gtsam::Matrix base_T_contact_jac = LegMeasurement::baseToContactJacobian(encoder, legConfigs["fl"]);
+                    gtsam::Matrix3 encoder_covariance_matrix = Eigen::Matrix3d::Identity() * 0.0174;
+                    gtsam::Matrix6 FK_covariance = base_T_contact_jac * encoder_covariance_matrix * base_T_contact_jac.transpose();
+
+                    Pose3 baseTcontact = Pose3(LegMeasurement::efInBaseExpMap(encoder, legConfigs["fl"]));
+
                     // This gives Contact Frame Relative to World position
                     fl = new LegMeasurement(legConfigs["fl"], propState.pose(), baseTcontact, dt, double(ts) / 200.);
                     imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
+
+                    initialValues.insert(Q(stateCount), propState.pose().compose(baseTcontact));
+                    BetweenFactor<Pose3> fk_factor(X(stateCount), Q(stateCount), baseTcontact, noiseModel::Gaussian::Covariance(FK_covariance));
+                    graph->add(fk_factor);
                 }
                 else
                 {
