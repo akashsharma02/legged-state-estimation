@@ -9,11 +9,18 @@
 
 namespace legged
 {
-    Dataloader::Dataloader(const std::string& imu_config_path, const std::string& leg_config_path)
-        : imu_config_path_(imu_config_path), leg_config_path_(leg_config_path)
+    Dataloader::Dataloader(const std::string& imu_config_path,
+                           const std::string& leg_config_path,
+                           const std::string& dataset_csv_path)
+        : imu_config_path_(imu_config_path),
+          leg_config_path_(leg_config_path),
+          dataset_csv_path_(dataset_csv_path),
+          csv_reader_(dataset_csv_path_)
     {
         loadImuConfig();
         loadLegConfigs();
+
+        readCsvHeader();
     }
 
     void Dataloader::loadLegConfigs()
@@ -107,7 +114,66 @@ namespace legged
         Eigen::Matrix<double, 1, 3, Eigen::RowMajor> gyroBiasInitial(vecGyro.data());
         Eigen::Matrix<double, 1, 3, Eigen::RowMajor> acceBiasInitial(vecAcce.data());
 
-        prior_imu_bias_(acceBiasInitial, gyroBiasInitial);
+        prior_imu_bias_ = gtsam::imuBias::ConstantBias(acceBiasInitial, gyroBiasInitial);
+    }
+
+    void Dataloader::readCsvHeader()
+    {
+        // clang-format off
+        csv_reader_.read_header(io::ignore_extra_column,
+                                "ts",
+                                "x", "y", "z", "i", "j", "k", "w",
+                                "wx", "wy", "wz", "ax", "ay", "az",
+                                "fl0", "fl1", "fl2",
+                                "fr0", "fr1", "fr2",
+                                "bl0", "bl1", "bl2",
+                                "br0", "br1", "br2",
+                                "flc", "frc", "blc", "brc");
+        //clang-format on
+    }
+
+    bool Dataloader::readDatasetLine(double& timestamp,
+                                     gtsam::Pose3 final_pose_reading,
+                                     gtsam::Vector6& imu_reading,
+                                     std::array<gtsam::Vector3, 4>& leg_encoder_readings,
+                                     std::array<int, 4>& leg_contact_readings)
+    {
+        double ts;
+        double x, y, z, i, j, k, w;
+        double wx, wy, wz, ax, ay, az;
+        double fl0, fl1, fl2;
+        double fr0, fr1, fr2;
+        double bl0, bl1, bl2;
+        double br0, br1, br2;
+
+        int flc, frc, blc, brc;
+
+        // clang-format off
+        bool success = csv_reader_.read_row(ts,
+                                           x, y, z, i, j, k, w,
+                                           wx, wy, wz, ax, ay, az,
+                                           fl0, fl1, fl2,
+                                           fr0, fr1, fr2,
+                                           bl0, bl1, bl2,
+                                           br0, br1, br2,
+                                           flc, frc, blc, brc);
+        // clang-format on
+        timestamp = ts;
+
+        gtsam::Quaternion final_quat(w, i, j, k);
+        gtsam::Vector3 final_translation(x, y, z);
+        final_pose_reading = gtsam::Pose3(final_quat, final_translation);
+
+        imu_reading << ax, ay, az, wx, wy, wy;
+
+        leg_encoder_readings.at(0) = gtsam::Vector3(fl0, fl1, fl2);
+        leg_encoder_readings.at(1) = gtsam::Vector3(fr0, fr1, fr2);
+        leg_encoder_readings.at(2) = gtsam::Vector3(bl0, bl1, bl2);
+        leg_encoder_readings.at(3) = gtsam::Vector3(br0, br1, br2);
+
+        leg_contact_readings = {flc, frc, blc, brc};
+
+        return success;
     }
 
 }  // namespace legged

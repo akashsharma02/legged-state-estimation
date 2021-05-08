@@ -19,6 +19,7 @@
 #include <gtsam/navigation/CombinedImuFactor.h>
 #include <gtsam/navigation/ImuBias.h>
 
+#include <fast-cpp-csv-parser/csv.h>
 #include <yaml-cpp/yaml.h>
 
 #include "leg-utils.h"
@@ -32,13 +33,24 @@ namespace legged
      */
     class Dataloader
     {
-        using LegConfigMap = std::map<std::string, LegConfig>;
-
        public:
-        Dataloader(const std::string &imu_config_path, const std::string &leg_config_path);
+        Dataloader(const std::string &imu_config_path,
+                   const std::string &leg_config_path,
+                   const std::string &dataset_csv_path);
 
         virtual ~Dataloader(){};
 
+        inline LegConfigMap getLegConfigs() const { return leg_config_map_; }
+        inline gtsam::PreintegrationCombinedParams getImuParams() const { return imu_params_; }
+        inline gtsam::imuBias::ConstantBias getImuBias() const { return prior_imu_bias_; }
+
+        bool readDatasetLine(double &timestamp,
+                             gtsam::Pose3 final_pose_reading,
+                             gtsam::Vector6 &imu_reading,
+                             std::array<gtsam::Vector3, 4> &leg_encoder_readings,
+                             std::array<int, 4> &leg_contact_readings);
+
+       protected:
         void loadLegConfigs();
         void loadImuConfig();
 
@@ -51,17 +63,18 @@ namespace legged
 
         gtsam::Pose3 extractPose(const YAML::Node &node, std::string attribute) const;
 
-        inline LegConfigMap getLegConfigs() const { return leg_config_map_; }
-        inline gtsam::PreintegrationCombinedParams getImuParams() const { return imu_params_; }
-        inline gtsam::imuBias::ConstantBias getImuBias() const { return prior_imu_bias_; }
+        void readCsvHeader();
 
-       protected:
-        std::string imu_config_path_;
-        std::string leg_config_path_;
+       private:
+        const std::string imu_config_path_;
+        const std::string leg_config_path_;
+        const std::string dataset_csv_path_;
 
         LegConfigMap leg_config_map_;
         gtsam::PreintegrationCombinedParams imu_params_;
         gtsam::imuBias::ConstantBias prior_imu_bias_;
+
+        io::CSVReader<23 + 7> csv_reader_;
     };
 }  // namespace legged
 

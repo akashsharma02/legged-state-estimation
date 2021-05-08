@@ -46,6 +46,8 @@ namespace legged
         gtsam::Matrix33 slip_covariance_;
     };
 
+    using LegConfigMap = std::map<std::string, LegConfig>;
+
     /* class LegMeasurement */
     /* { */
     /*    public: */

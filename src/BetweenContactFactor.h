@@ -13,7 +13,8 @@
 #include <gtsam/base/Testable.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <vector>
-#include "ContactUtils.h"
+
+#include "leg-utils.h"
 
 namespace gtsam
 {

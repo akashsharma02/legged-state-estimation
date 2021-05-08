@@ -10,10 +10,10 @@
 #include <utils.h>
 
 //! STL libs
-#include <string>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <string>
 #include <vector>
 
 //! Dependencies libs
@@ -33,9 +33,9 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
 //! Local project headers
-#include "dataloader.h"
 #include "BetweenContactFactor.h"
-#include "ContactUtils.h"
+#include "dataloader.h"
+#include "leg-utils.h"
 
 using namespace gtsam;
 
@@ -53,73 +53,38 @@ void saveTrajectory(const Values&, uint64_t);
 
 int main(int argc, char* argv[])
 {
+    //! Command line setup
     utils::setLogPattern();
     CLI::App app{ "Test file for Multi Leg Contact Factor" };
 
-    std::string configFilePath("");
-    std::string datasetFilePath("");
-    std::string imuConfigPath("");
-    int maxIdx = 10;
-    bool debug = false;
-    app.add_option("-c, --config", configFilePath, "Leg Configuration input");
-    app.add_option("-d, --data", datasetFilePath, "Dataset input");
-    app.add_option("-i, --IMU", imuConfigPath, "IMU Config File Path");
-    app.add_option("-m, --maxIdx", maxIdx, "max index for number of data to be read");
-    app.add_option("-b, --debug", debug, "debug options");
+    std::string leg_config_path;
+    app.add_option("-l, --leg-config", leg_config_path, "Path to Leg configuration yaml file");
+    std::string dataset_file_path;
+    app.add_option("-d, --data", dataset_file_path, "Path to dataset csv file");
+    std::string imu_config_path;
+    app.add_option("-i, --imu-config", imu_config_path, "Path to IMU configuration yaml file");
+    int max_index = 10;
+    app.add_option("-m, --max_index", max_index, "maximum number of lines to read in datafile");
+
     CLI11_PARSE(app, argc, argv);
 
+    legged::Dataloader dataloader = legged::Dataloader(imu_config_path, leg_config_path);
+
+    legged::LegConfigMap leg_configs = dataloader.getLegConfigs();
+    auto imu_params                  = dataloader.getImuParams();
+    auto imu_bias                    = dataloader.getImuBias();
+
     // Setup Dataset
-    io::CSVReader<23 + 7> datafile(datasetFilePath);
-    datafile.read_header(io::ignore_extra_column,
-                         "ts",
-                         "x",
-                         "y",
-                         "z",
-                         "i",
-                         "j",
-                         "k",
-                         "w",
-                         "wx",
-                         "wy",
-                         "wz",
-                         "ax",
-                         "ay",
-                         "az",
-                         "fl0",
-                         "fl1",
-                         "fl2",
-                         "fr0",
-                         "fr1",
-                         "fr2",
-                         "bl0",
-                         "bl1",
-                         "bl2",
-                         "br0",
-                         "br1",
-                         "br2",
-                         "flc",
-                         "frc",
-                         "blc",
-                         "brc");
-    double ts, wx, wy, wz, ax, ay, az, fl0, fl1, fl2, fr0, fr1, fr2, bl0, bl1, bl2, br0, br1, br2;
-    int flc, frc, blc, brc;
-    int idx         = 0;
     bool robotReady = false;
 
-    // Load Leg Configs
-    std::map<std::string, gtsam::LegConfig> legConfigs = DataLoader::loadLegConfig(configFilePath);
-
-    // Setup IMU Configs
-    auto p         = DataLoader::loadIMUConfig(imuConfigPath);
-    auto priorBias = DataLoader::getIMUBias(imuConfigPath);
     // This is for the Base
     std::shared_ptr<PreintegrationType> preintegrated = std::make_shared<PreintegratedImuMeasurements>(p, priorBias);
 
     // Logging for the contact Frames, they are not factors, just preintegrated measurements
-    auto pQ                                     = DataLoader::loadIMUConfig(imuConfigPath);
-    auto pP                                     = DataLoader::loadIMUConfig(imuConfigPath);
-    auto pA                                     = DataLoader::loadIMUConfig(imuConfigPath);
-    auto pL                                     = DataLoader::loadIMUConfig(imuConfigPath);
+    auto pQ                                     = DataLoader::loadIMUConfig(imu_config_path);
+    auto pP                                     = DataLoader::loadIMUConfig(imu_config_path);
+    auto pA                                     = DataLoader::loadIMUConfig(imu_config_path);
+    auto pL                                     = DataLoader::loadIMUConfig(imu_config_path);
     std::shared_ptr<PreintegrationType> imuLogQ = std::make_shared<PreintegratedImuMeasurements>(pQ, priorBias);
     std::shared_ptr<PreintegrationType> imuLogP = std::make_shared<PreintegratedImuMeasurements>(pP, priorBias);
     std::shared_ptr<PreintegrationType> imuLogA = std::make_shared<PreintegratedImuMeasurements>(pA, priorBias);
@@ -198,39 +163,16 @@ int main(int argc, char* argv[])
         result.print("Final Result:\n");
     }
 
-    double x, y, z, i, j, k, w;
+    size_t index = 0;
+    double timestamp;
+    gtsam::Pose3 final_pose_reading;
+    gtsam::Vector6 imu_reading;
+    std::array<gtsam::Vector3, 4> leg_encoder_readings;
+    std::array<int, 4> leg_contact_readings;
 
-    while (datafile.read_row(ts,
-                             x,
-                             y,
-                             z,
-                             i,
-                             j,
-                             k,
-                             w,
-                             wx,
-                             wy,
-                             wz,
-                             ax,
-                             ay,
-                             az,
-                             fl0,
-                             fl1,
-                             fl2,
-                             fr0,
-                             fr1,
-                             fr2,
-                             bl0,
-                             bl1,
-                             bl2,
-                             br0,
-                             br1,
-                             br2,
-                             flc,
-                             frc,
-                             blc,
-                             brc) &&
-           idx++ < maxIdx)
+    while (
+        dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, leg_encoder_readings, leg_contact_readings) &&
+        index++ < max_index)
     {
         // Wait until All Four legs are on the ground
         // since they were initially floating
@@ -336,7 +278,7 @@ int main(int argc, char* argv[])
                 // Makes Contact Factor
                 Vector encoder = (Vector3() << fl0, fl1, fl2).finished();
 
-                gtsam::Matrix base_T_contact_jac         = LegMeasurement::baseToContactJacobian(encoder, legConfigs["fl"]);
+                gtsam::Matrix base_T_contact_jac = LegMeasurement::baseToContactJacobian(encoder, legConfigs["fl"]);
                 std::cout << base_T_contact_jac << std::endl;
                 gtsam::Matrix3 encoder_covariance_matrix = Eigen::Matrix3d::Identity() * 0.0174;
                 gtsam::Matrix6 FK_covariance =
