@@ -27,7 +27,8 @@
 namespace legged
 {
     /*! \class Dataloader
-     *  \brief Brief class description
+     *  \brief Loads the IMU configuration and Leg configuration from respective yaml files
+     *         and reads csv file for new measurements
      *
      *  Detailed description
      */

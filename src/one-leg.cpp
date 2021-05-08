@@ -59,8 +59,8 @@ int main(int argc, char* argv[])
 
     std::string leg_config_path;
     app.add_option("-l, --leg-config", leg_config_path, "Path to Leg configuration yaml file");
-    std::string dataset_file_path;
-    app.add_option("-d, --data", dataset_file_path, "Path to dataset csv file");
+    std::string dataset_csv_path;
+    app.add_option("-d, --data", dataset_csv_path, "Path to dataset csv file");
     std::string imu_config_path;
     app.add_option("-i, --imu-config", imu_config_path, "Path to IMU configuration yaml file");
     int max_index = 10;
@@ -68,27 +68,25 @@ int main(int argc, char* argv[])
 
     CLI11_PARSE(app, argc, argv);
 
-    legged::Dataloader dataloader = legged::Dataloader(imu_config_path, leg_config_path);
+    //! Dataloader setup
+    legged::Dataloader dataloader = legged::Dataloader(imu_config_path, leg_config_path, dataset_csv_path);
 
     legged::LegConfigMap leg_configs = dataloader.getLegConfigs();
     auto imu_params                  = dataloader.getImuParams();
-    auto imu_bias                    = dataloader.getImuBias();
+    auto prior_imu_bias              = dataloader.getImuBias();
 
-    // Setup Dataset
-    bool robotReady = false;
+    //! Base frame Preintegrated IMU measurement (pim)
+    std::shared_ptr<PreintegrationType> base_pim = std::make_shared<PreintegratedImuMeasurements>(imu_params, prior_imu_bias);
 
-    // This is for the Base
-    std::shared_ptr<PreintegrationType> preintegrated = std::make_shared<PreintegratedImuMeasurements>(p, priorBias);
-
-    // Logging for the contact Frames, they are not factors, just preintegrated measurements
-    auto pQ                                     = DataLoader::loadIMUConfig(imu_config_path);
-    auto pP                                     = DataLoader::loadIMUConfig(imu_config_path);
-    auto pA                                     = DataLoader::loadIMUConfig(imu_config_path);
-    auto pL                                     = DataLoader::loadIMUConfig(imu_config_path);
-    std::shared_ptr<PreintegrationType> imuLogQ = std::make_shared<PreintegratedImuMeasurements>(pQ, priorBias);
-    std::shared_ptr<PreintegrationType> imuLogP = std::make_shared<PreintegratedImuMeasurements>(pP, priorBias);
-    std::shared_ptr<PreintegrationType> imuLogA = std::make_shared<PreintegratedImuMeasurements>(pA, priorBias);
-    std::shared_ptr<PreintegrationType> imuLogL = std::make_shared<PreintegratedImuMeasurements>(pL, priorBias);
+    /* // Logging for the contact Frames, they are not factors, just preintegrated measurements */
+    /* auto pQ                                     = DataLoader::loadIMUConfig(imu_config_path); */
+    /* auto pP                                     = DataLoader::loadIMUConfig(imu_config_path); */
+    /* auto pA                                     = DataLoader::loadIMUConfig(imu_config_path); */
+    /* auto pL                                     = DataLoader::loadIMUConfig(imu_config_path); */
+    /* std::shared_ptr<PreintegrationType> imuLogQ = std::make_shared<PreintegratedImuMeasurements>(pQ, priorBias); */
+    /* std::shared_ptr<PreintegrationType> imuLogP = std::make_shared<PreintegratedImuMeasurements>(pP, priorBias); */
+    /* std::shared_ptr<PreintegrationType> imuLogA = std::make_shared<PreintegratedImuMeasurements>(pA, priorBias); */
+    /* std::shared_ptr<PreintegrationType> imuLogL = std::make_shared<PreintegratedImuMeasurements>(pL, priorBias); */
 
     // Setup Prior Values
     Rot3 priorRotation(I_3x3);          // Default Always identity
@@ -169,6 +167,7 @@ int main(int argc, char* argv[])
     gtsam::Vector6 imu_reading;
     std::array<gtsam::Vector3, 4> leg_encoder_readings;
     std::array<int, 4> leg_contact_readings;
+    bool robotReady = false;
 
     while (
         dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, leg_encoder_readings, leg_contact_readings) &&
