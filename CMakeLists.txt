@@ -32,39 +32,20 @@ enable_sanitizers(project_options)
 # allow for static analysis options
 include(cmake/static_analyzers.cmake)
 
-
 # ----------------------- Dependencies --------------------------------------
 include(cmake/conan.cmake)
 run_conan()
+
 find_package(Eigen3 3.3 REQUIRED)
 find_package(GTSAM 4.1 REQUIRED)
 find_package(OpenCV 4.0 REQUIRED)
 
-include_directories(
-    ${PROJECT_SOURCE_DIR}
-    ${PROJECT_SOURCE_DIR}/include
-    ${EIGEN3_INCLUDE_DIR}
-)
-
-add_library(${PROJECT_NAME} SHARED
-    src/dataloader.cpp
-    src/IMU.cpp
-)
-
-target_link_libraries(${PROJECT_NAME}
-    ${OpenCV_LIBS}
-    ${EIGEN3_LIBS}
-    CONAN_PKG::yaml-cpp
-    CONAN_PKG::fast-cpp-csv-parser
-    gtsam
-)
 # ----------------------- Build options -------------------------------------
 
 # ----------------------- Subdirectories ------------------------------------
 add_subdirectory(utils)
 add_subdirectory(src)
+# add_subdirectory(test)
 
-
-# add_subdirectory(scripts)
 
 # ----------------------- Testing -------------------------------------------
