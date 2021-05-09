@@ -54,6 +54,45 @@ target_link_libraries(
   ${PROJECT_NAME}
 )
 
+add_executable(
+  testTwist
+  testTwist.cpp
+)
+
+target_link_libraries(
+  testTwist
+  PRIVATE
+  project_options
+  project_warnings
+  utils
+  CONAN_PKG::fmt
+  CONAN_PKG::spdlog
+  CONAN_PKG::cli11
+  gtsam
+  ${OpenCV_LIBS}
+  ${PROJECT_NAME}
+)
+
+add_executable(
+  imuToy
+  imufactorToyExample.cpp
+)
+
+target_link_libraries(
+  imuToy
+  PRIVATE
+  project_options
+  project_warnings
+  utils
+  CONAN_PKG::fmt
+  CONAN_PKG::spdlog
+  CONAN_PKG::cli11
+  gtsam
+  ${OpenCV_LIBS}
+  ${PROJECT_NAME}
+)
+
+
 # add_executable(
 #   yamltester
 #   yamltester.cpp
