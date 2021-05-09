@@ -1,53 +1,15 @@
-#include "IMU.h"
-// #include "Converter.h"
+/******************************************************************************
+* File:             imu.cpp
+*
+* Author:           Ruoyang Xu & Akash Sharma
+* Created:          05/08/21
+* Description:
+*****************************************************************************/
 
-namespace ORB_SLAM2 {
+#include "imu.h"
 
-    std::ostream& operator<<(std::ostream& os, const ImuMeasure& imu)
-    {
-        os << "a: " << "[" << imu._a.x << "," << imu._a.y << "," << imu._a.z << "]" << std::endl;
-        os << "w: " << "[" << imu._w.x << "," << imu._w.y << "," << imu._w.z << "]" << std::endl;
-        os << "timestamp: " << imu._ts << std::endl;
-        return os;
-    }
+namespace legged {
 
-    void Bias::setBiasVec(const Eigen::Matrix<double, 6, 1> &_b)
-    {
-        bwx = _b(0);
-        bwy = _b(1);
-        bwz = _b(2);
-        bax = _b(3);
-        bay = _b(4);
-        baz = _b(5);
-    }
-
-    Eigen::Matrix<double,6,1> Bias::getBiasVec()
-    {
-        Eigen::Matrix<double, 6, 1> b;
-        b << bwx, bwy, bwz, bax, bay, baz;
-        return b;
-    }
-
-    Eigen::Matrix<double,3,1> Bias::getGyroVec()
-    {
-        Eigen::Matrix<double, 3, 1> bg;
-        bg << bwx, bwy, bwz;
-        return bg;
-    }
-
-    Eigen::Matrix<double,3,1> Bias::getAccelVec()
-    {
-        Eigen::Matrix<double, 3, 1> ba;
-        ba << bax, bay, baz;
-        return ba;
-    }
-
-    std::ostream& operator<<(std::ostream& os, const Bias& b)
-    {
-        os << "bw: " << "[" << b.bwx << "," << b.bwy << "," << b.bwz << "]" << std::endl;
-        os << "ba: " << "[" << b.bax << "," << b.bay << "," << b.baz << "]" << std::endl;
-        return os;
-    }
 
     Calib::Calib() {
         Tcb = cv::Mat::eye(4, 4, CV_64F);
@@ -67,7 +29,7 @@ namespace ORB_SLAM2 {
         // Deal with Tbc later
         Tbc = Tbc_.clone();
         Tcb = cv::Mat::eye(4,4,CV_64F);
-        
+
         // Simple matrix inversion
         // g inv = [R', -R't; 0, 1]
         Tcb.rowRange(0,3).colRange(0,3) = Tbc.rowRange(0,3).colRange(0,3).t();
@@ -171,7 +133,7 @@ namespace ORB_SLAM2 {
         // Jpa = prev.Jpa.clone();
         // Jpg = prev.Jpg.clone();
 
-        // Even noises are propagated, they are not propagated here. 
+        // Even noises are propagated, they are not propagated here.
         nphi = cv::Mat::zeros(3, 1, CV_64F);
         nv = cv::Mat::zeros(3, 1, CV_64F);
         np = cv::Mat::zeros(3, 1, CV_64F);
@@ -187,7 +149,7 @@ namespace ORB_SLAM2 {
         lPc = cv::Mat::zeros(3, 1, CV_64F);
         lVc = cv::Mat::zeros(3, 1, CV_64F);
 
-        
+
         b = prev.b;
         c = prev.c;
         lastTimestamp = prev.currentTimestamp;
@@ -208,11 +170,11 @@ namespace ORB_SLAM2 {
     void PreintegratedIMU::integrateMeasurement(const cv::Point3d a, const cv::Point3d w, double dt) {
         // Integrate Measurement
 
-        // Usually the last argument is used as timestamp, here we use as 
+        // Usually the last argument is used as timestamp, here we use as
         if (dt == 0) {
             std::cout << "integrate Measurement received dt == 0" << std::endl;
         }
-        
+
         ImuMeasure imu(a, w, dt, true);
         imuLog.push_back(imu);
 
@@ -221,7 +183,7 @@ namespace ORB_SLAM2 {
         acc.at<double>(0, 0) = a.x - b.bax * sqrtdt;
         acc.at<double>(1, 0) = a.y - b.bay * sqrtdt;
         acc.at<double>(2, 0) = a.z - b.baz * sqrtdt; // - 1.226e-4;
-        
+
         cv::Mat angV = cv::Mat::zeros(3, 1, CV_64F);
         angV.at<double>(0, 0) = w.x - b.bwx * sqrtdt;
         angV.at<double>(1, 0) = w.y - b.bwy * sqrtdt;
@@ -231,7 +193,7 @@ namespace ORB_SLAM2 {
         auto TcbR = c.Tcb.rowRange(0, 3).colRange(0, 3);
         acc = TcbR * acc;
         angV = TcbR * angV;
-        
+
         // Equation 2
         wPb = wPb + wVb * dt + 0.5 * g_w * pow(dt, 2) + 0.5 * Rwb * acc * pow(dt, 2);
         wVb = wVb + g_w * dt + Rwb * acc * dt;
@@ -248,11 +210,11 @@ namespace ORB_SLAM2 {
             - 0.5 * Rlc * hatOperator(acc) * nphi * dt*dt;
             + 0.5 * Rlc * acc_noise.diag(0) * dt*dt;
         // std::cout << np;
-        
+
         nv = nv - Rlc * hatOperator(acc) * nphi * dt + Rlc * acc_noise.diag(0) * dt;
         nphi = dR.t() * nphi + rightJacobian(angV) * gyro_noise.diag(0) * dt;
         // Retrieve Covariance matrix through getMeasurementNoise
-        
+
         // Update Jacobian
         Jpa = Jpa + 1.5 * Jva * dt;
         Jpg = Jpg + 1.5 * Jvg * dt;
@@ -293,7 +255,7 @@ namespace ORB_SLAM2 {
             newLocation.integrateMeasurement(i._a, i._w, i._dt);
         }
         copyFrom(newLocation);
-        
+
     }
 
     void PreintegratedIMU::updateChildrenKFDeleted(const PreintegratedIMU& child) {
@@ -307,7 +269,7 @@ namespace ORB_SLAM2 {
 
     cv::Mat hatOperator(cv::Mat w) {
         cv::Mat w_hat = (cv::Mat_<double>(3,3)
-            << 0, -w.at<double>(2, 0), w.at<double>(1, 0), 
+            << 0, -w.at<double>(2, 0), w.at<double>(1, 0),
                w.at<double>(2, 0), 0, -w.at<double>(0, 0),
               -w.at<double>(1, 0), w.at<double>(0, 0), 0);
         return w_hat.clone();
@@ -318,7 +280,7 @@ namespace ORB_SLAM2 {
         double phi_norm = cv::norm(phi);
 
         cv::Mat phi_hat = hatOperator(phi);
-        
+
         cv::Mat rJ = I - (1 - cos(phi_norm)) / (phi_norm * phi_norm) * phi_hat
             + (phi_norm) - sin(phi_norm) / (pow(phi_norm, 3)) * phi_hat * phi_hat;
         return rJ.clone();
@@ -337,7 +299,7 @@ namespace ORB_SLAM2 {
         Rlc *= ExpMap(JRg * dBg, 1.);
         lVc += Jvg * dBg + Jva * dBa;
         lPc += Jpg * dBg + Jpa * dBa;
-        
+
         // Then update Rwb wVb and wPb
         double dt = currentTimestamp - lastTimestamp;
         // Rlc = Rwl.t() * Rwb;
@@ -376,8 +338,8 @@ namespace ORB_SLAM2 {
     {
         cv::Mat result = cv::Mat(4, 1, CV_64F);
         double trace = R.at<double>(0,0) + R.at<double>(1,1) + R.at<double>(2,2);
-    
-        if (trace > 0.0) 
+
+        if (trace > 0.0)
         {
             double s = sqrt(trace + 1.0);
             result.at<double>(3, 0) = (s * 0.5);
@@ -385,12 +347,12 @@ namespace ORB_SLAM2 {
             result.at<double>(0, 0) = ((R.at<double>(2,1) - R.at<double>(1,2)) * s);
             result.at<double>(1, 0) = ((R.at<double>(0,2) - R.at<double>(2,0)) * s);
             result.at<double>(2, 0) = ((R.at<double>(1,0) - R.at<double>(0,1)) * s);
-        } 
-        
-        else 
+        }
+
+        else
         {
-            int i = R.at<double>(0,0) < R.at<double>(1,1) ? (R.at<double>(1,1) < R.at<double>(2,2) ? 2 : 1) : (R.at<double>(0,0) < R.at<double>(2,2) ? 2 : 0); 
-            int j = (i + 1) % 3;  
+            int i = R.at<double>(0,0) < R.at<double>(1,1) ? (R.at<double>(1,1) < R.at<double>(2,2) ? 2 : 1) : (R.at<double>(0,0) < R.at<double>(2,2) ? 2 : 0);
+            int j = (i + 1) % 3;
             int k = (i + 2) % 3;
 
             double s = sqrt(R.at<double>(i, i) - R.at<double>(j,j) - R.at<double>(k,k) + 1.0);
@@ -444,32 +406,5 @@ namespace ORB_SLAM2 {
         lPc = Rwl.t() * (wPb - wPl - wVl * dt - 0.5 * g_w * pow(dt, 2));
     }
 
-/*
-    Eigen::Matrix<double, 9, 9> PreintegratedIMU::getSI()
-    {
-        // Eigen::Matrix<double, 9, 9> SI = Eigen::Matrix<double, 9, 9>::Identity();
-        // TODO: Should this be inverted?
-        Eigen::Matrix<double, 9, 9> SI;
-        SI.diagonal() << 
-            Converter::toVector3d(nphi), Converter::toVector3d(nv), Converter::toVector3d(np);
-        return SI;
-    }
-
-    Eigen::Matrix<double, 6, 6> PreintegratedIMU::getSR()
-    {
-        Eigen::Matrix<double, 6, 6> SR; 
-        SR.diagonal() << Eigen::Vector3d::Ones()*1.9393e-05, Eigen::Vector3d::Ones()*3.0000e-3;
-        // SR.diagonal() << 1.9393e-05, 1.9393e-05, 1.9393e-05, 3.0000e-3, 3.0000e-3, 3.0000e-3;
-        // SR <<
-        // 1.9393e-05, 0.0,        0.0,        0.0,        0.0,        0.0,        // gyro random walk for euroc
-        // 0.0,        1.9393e-05, 0.0,        0.0,        0.0,        0.0,        // ...
-        // 0.0,        0.0,        1.9393e-05, 0.0,        0.0,        0.0,        // ...
-        // 0.0,        0.0,        0.0,        3.0000e-3,  0.0,        0.0,        // accel random walk for euroc
-        // 0.0,        0.0,        0.0,        0.0,        3.0000e-3,  0.0,        // ...
-        // 0.0,        0.0,        0.0,        0.0,        0.0,        3.0000e-3;  // ...
-        
-        return SR;
-    }
-*/
 
 }

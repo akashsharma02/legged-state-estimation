@@ -1,5 +1,24 @@
 ##################### Add subdirectories ##########################
 
+add_library(${PROJECT_NAME} SHARED
+    dataloader.cpp
+    # imu.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}
+    ${OpenCV_LIBS}
+    project_options
+    project_warnings
+    utils
+    Eigen3::Eigen
+    CONAN_PKG::fmt
+    CONAN_PKG::cli11
+    CONAN_PKG::spdlog
+    CONAN_PKG::yaml-cpp
+    CONAN_PKG::fast-cpp-csv-parser
+    gtsam
+)
+
 add_executable(
   test
   test.cpp
@@ -19,38 +38,12 @@ target_link_libraries(
 
 add_executable(
   oneLeg
-  oneLegTester.cpp
+  one-leg.cpp
 )
 
 target_link_libraries(
   oneLeg
   PRIVATE
-  project_options
-  project_warnings
-  utils
-  CONAN_PKG::fmt
-  CONAN_PKG::spdlog
-  CONAN_PKG::cli11
-  gtsam
-  ${PROJECT_NAME}
-)
-
-add_executable(
-  inertial
-  inertialOnly.cpp
-)
-
-target_link_libraries(
-  inertial
-  PRIVATE
-  project_options
-  project_warnings
-  utils
-  CONAN_PKG::fmt
-  CONAN_PKG::spdlog
-  CONAN_PKG::cli11
-  gtsam
-  ${OpenCV_LIBS}
   ${PROJECT_NAME}
 )
 
@@ -92,22 +85,3 @@ target_link_libraries(
   ${PROJECT_NAME}
 )
 
-
-# add_executable(
-#   yamltester
-#   yamltester.cpp
-# )
-
-# target_link_libraries(
-#   yamltester
-#   PRIVATE
-#   project_options
-#   project_warnings
-#   utils
-#   CONAN_PKG::fmt
-#   CONAN_PKG::spdlog
-#   CONAN_PKG::cli11
-#   yaml-cpp
-#   gtsam
-#   ${EIGEN3_INCLUDE_DIR}
-# )
