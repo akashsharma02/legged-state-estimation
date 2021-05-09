@@ -37,7 +37,7 @@ namespace legged
               slip_covariance_(slip_covariance)
         {
         }
-        virtual ~LegConfig();
+        ~LegConfig() {}
 
        protected:
         std::vector<gtsam::Vector6> twists_;

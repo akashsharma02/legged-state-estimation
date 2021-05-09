@@ -19,13 +19,13 @@
 #include <string.h>
 
 // Factors
-#include "ContactUtils.h"
+// #include "ContactUtils.h"
 #include "BetweenContactFactor.h"
 
 // Utils
 #include "fast-cpp-csv-parser/csv.h"
 #include "dataloader.h"
-#include "IMU.h"
+// #include "imu.h"
 
 #include <gtsam/inference/Symbol.h>
 // #include <gtsam/navigation/CombinedImuFactor.h>
@@ -47,13 +47,13 @@ int main(int argc, char* argv[])
     utils::setLogPattern();
     CLI::App app{"Test file for Multi Leg Contact Factor"};
 
-    std::string configFilePath("");
+    std::string legConfigFilePath("");
     std::string datasetFilePath("");
     std::string imuConfigPath("");
     std::string outputFile("");
-    int maxIdx = 10;
+    size_t maxIdx = 10;
     bool debug = false;
-    app.add_option("-c, --config", configFilePath, "Leg Configuration input");
+    app.add_option("-c, --config", legConfigFilePath, "Leg Configuration input");
     app.add_option("-d, --data", datasetFilePath, "Dataset input");
     app.add_option("-i, --IMU", imuConfigPath, "IMU Config File Path");
     app.add_option("-m, --maxIdx", maxIdx, "max index for number of data to be read");
@@ -61,29 +61,34 @@ int main(int argc, char* argv[])
     app.add_option("-o, --output", outputFile, "trajectory Output filename");
     CLI11_PARSE(app, argc, argv);
 
-    // Setup Dataset
-    io::CSVReader<23 + 7> datafile(datasetFilePath);
-    datafile.read_header(io::ignore_extra_column,
-        "ts",
-        "x","y","z","i","j","k","w",
-        "wx","wy","wz","ax","ay","az","fl0","fl1","fl2",
-        "fr0","fr1","fr2","bl0","bl1","bl2","br0","br1","br2",
-        "flc","frc","blc","brc"
-    );
-    double ts,wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2;
-    int flc,frc,blc,brc;
-    int idx = 0;
+    // // Setup Dataset
+    // io::CSVReader<23 + 7> datafile(datasetFilePath);
+    // datafile.read_header(io::ignore_extra_column,
+    //     "ts",
+    //     "x","y","z","i","j","k","w",
+    //     "wx","wy","wz","ax","ay","az","fl0","fl1","fl2",
+    //     "fr0","fr1","fr2","bl0","bl1","bl2","br0","br1","br2",
+    //     "flc","frc","blc","brc"
+    // );
+    // double ts,wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2;
+    // int flc,frc,blc,brc;
+    // int idx = 0;
+
+    legged::Dataloader dataloader = legged::Dataloader(imuConfigPath, legConfigFilePath, datasetFilePath);
+    legged::LegConfigMap legConfigs = dataloader.getLegConfigs();
+    auto imuParam = dataloader.getImuParams();
+    auto imuBias = dataloader.getImuBias();
 
     // Load Leg Configs
-    std::map<std::string, gtsam::LegConfig> legConfigs = DataLoader::loadLegConfig(configFilePath);
+    // std::map<std::string, gtsam::LegConfig> legConfigs = DataLoader::loadLegConfig(configFilePath);
 
     // Setup IMU Configs
-    auto p = DataLoader::loadIMUConfig(imuConfigPath);
-    auto priorBias = DataLoader::getIMUBias(imuConfigPath);
+    // auto p = DataLoader::loadIMUConfig(imuConfigPath);
+    // auto priorBias = DataLoader::getIMUBias(imuConfigPath);
     // imuBias::ConstantBias zero_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
     // This is for the Base
     std::shared_ptr<PreintegrationType> preintegrated =
-        std::make_shared<PreintegratedCombinedMeasurements>(p, priorBias);
+        std::make_shared<PreintegratedCombinedMeasurements>(imuParam, imuBias);
 
     // Setup Prior Values
     Rot3 priorRotation(I_3x3); // Default Always identity
@@ -128,45 +133,50 @@ int main(int argc, char* argv[])
     double x, y, z, i, j, k, w;
     Pose3 lastPose = priorPose;
 
-    int imu_cycle = 0;
-    int max_imu = 200;
-    ORB_SLAM2::PreintegratedIMU new_meas;
-    new_meas.initialize();
-    cv::Mat g = cv::Mat::zeros(3, 1, CV_64F);
-    new_meas.setGravity(g);
+    // int imu_cycle = 0;
+    // int max_imu = 200;
+    // legged::PreintegratedIMU new_meas;
+    // new_meas.initialize();
+    // cv::Mat g = cv::Mat::zeros(3, 1, CV_64F);
+    // new_meas.setGravity(g);
 
-    cv::Point3d acc, angVel;
-    Matrix R;
-    Point3 P;
-    Matrix v;
-    while (datafile.read_row(
-        ts,
-        x, y, z, i, j, k, w,
-        wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2,flc,frc,blc,brc
-        ) && idx++ < maxIdx) {
+    // cv::Point3d acc, angVel;
+    // Matrix R;
+    // Point3 P;
+    // Matrix v;
 
-        if (imu_cycle < max_imu) {
-            imu_cycle++;
-            // imu *= 200;
-            ORB_SLAM2::ImuMeasure meas(ax, ay, az, wx, wy, wz, ts);
-            acc = meas._a;
-            angVel = meas._w;
-            new_meas.integrateMeasurement(acc, angVel, 1./200);
-        } else {
-            imu_cycle = 0;
-            stateCount++;
-            ORB_SLAM2::ImuMeasure meas(ax, ay, az, wx, wy, wz, ts);
-            acc = meas._a;
-            angVel = meas._w;
-            new_meas.integrateMeasurement(acc, angVel, 1./200);
-            R = toMatrix3d(new_meas.getRotation());
-            P = toPoint3(new_meas.getTranslation());
-            Pose3 wTb = Pose3(Rot3(R), P);
-            BetweenFactor<Pose3> btf(X(stateCount - 1), X(stateCount), lastPose.between(wTb), priorPoseNoise);
-            initialValues.insert(X(stateCount), wTb);
-            lastPose = wTb;
-            graph->add(btf);
-        }
+    size_t index = 0;
+    double timestamp;
+    gtsam::Pose3 final_pose_reading;
+    gtsam::Vector6 imu_reading;
+    std::array<gtsam::Vector3, 4> leg_encoder_readings;
+    std::array<int, 4> leg_contact_readings;
+
+    while (dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, 
+        leg_encoder_readings, leg_contact_readings) && index++ < maxIdx) {
+
+        // if (imu_cycle < max_imu) {
+        //     imu_cycle++;
+        //     // imu *= 200;
+        //     legged::ImuMeasure meas(ax, ay, az, wx, wy, wz, ts);
+        //     acc = meas._a;
+        //     angVel = meas._w;
+        //     new_meas.integrateMeasurement(acc, angVel, 1./200);
+        // } else {
+        //     imu_cycle = 0;
+        //     stateCount++;
+        //     legged::ImuMeasure meas(ax, ay, az, wx, wy, wz, ts);
+        //     acc = meas._a;
+        //     angVel = meas._w;
+        //     new_meas.integrateMeasurement(acc, angVel, 1./200);
+        //     R = toMatrix3d(new_meas.getRotation());
+        //     P = toPoint3(new_meas.getTranslation());
+        //     Pose3 wTb = Pose3(Rot3(R), P);
+        //     BetweenFactor<Pose3> btf(X(stateCount - 1), X(stateCount), lastPose.between(wTb), priorPoseNoise);
+        //     initialValues.insert(X(stateCount), wTb);
+        //     lastPose = wTb;
+        //     graph->add(btf);
+        // }
     }
 
 

@@ -91,7 +91,7 @@ namespace legged
     {
         YAML::Node node = YAML::LoadFile(imu_config_path_);
         //! Set gravity to 0.0
-        imu_params_ = gtsam::PreintegrationCombinedParams(gtsam::Vector3(0, 0, 0));
+        imu_params_ = gtsam::PreintegrationCombinedParams::MakeSharedD(0.0);
 
         //! Set white noise on the bias and measurements
         gtsam::Matrix33 measured_omega_cov = gtsam::I_3x3 * pow(node["NoiseGyro"].as<double>(), 2);
@@ -100,13 +100,13 @@ namespace legged
         gtsam::Matrix33 bias_acc_cov   = gtsam::I_3x3 * pow(node["AccWalk"].as<double>(), 2);
         gtsam::Matrix33 bias_omega_cov = gtsam::I_3x3 * pow(node["GyroWalk"].as<double>(), 2);
 
-        imu_params_.setAccelerometerCovariance(measured_acc_cov);
-        imu_params_.setGyroscopeCovariance(measured_omega_cov);
-        imu_params_.setIntegrationCovariance(gtsam::I_3x3 * 1e-8);  //! Magic number from ImuFactorsExample
+        imu_params_->setAccelerometerCovariance(measured_acc_cov);
+        imu_params_->setGyroscopeCovariance(measured_omega_cov);
+        imu_params_->setIntegrationCovariance(gtsam::I_3x3 * 1e-8);  //! Magic number from ImuFactorsExample
 
-        imu_params_.setBiasAccCovariance(bias_acc_cov);
-        imu_params_.setBiasOmegaCovariance(bias_omega_cov);
-        imu_params_.setBiasAccOmegaInt(gtsam::I_6x6 * 1e-5);  //! Magic number from ImuFactorsExample
+        imu_params_->setBiasAccCovariance(bias_acc_cov);
+        imu_params_->setBiasOmegaCovariance(bias_omega_cov);
+        imu_params_->setBiasAccOmegaInt(gtsam::I_6x6 * 1e-5);  //! Magic number from ImuFactorsExample
 
         const std::vector<double> vecGyro = node["biasGyro"].as<std::vector<double>>();
         const std::vector<double> vecAcce = node["biasAcce"].as<std::vector<double>>();
