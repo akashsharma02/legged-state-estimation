@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
     legged::Dataloader dataloader = legged::Dataloader(imu_config_path, leg_config_path, dataset_file_path);
 
     legged::LegConfigMap leg_configs = dataloader.getLegConfigs();
-    auto imu_params                  = dataloader.getImuParams();
+    auto imu_params                  = boost::make_shared<PreintegrationCombinedParams>(dataloader.getImuParams());
     auto imu_bias                    = dataloader.getImuBias();
 
     // Setup Dataset
@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
 
     initialValues.insert(X(stateCount), priorPose);
     initialValues.insert(V(stateCount), priorVelocity);
-    initialValues.insert(B(stateCount), priorBias);
+    initialValues.insert(B(stateCount), prevBias);
     /* initialValues.insert(Q(stateCount), priorfl); */
     /* initialValues.insert(P(stateCount), priorfr); */
     /* initialValues.insert(A(stateCount), priorbl); */

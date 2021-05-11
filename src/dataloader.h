@@ -41,7 +41,7 @@ namespace legged
         virtual ~Dataloader(){};
 
         inline LegConfigMap getLegConfigs() const { return leg_config_map_; }
-        inline boost::shared_ptr<gtsam::PreintegrationCombinedParams> getImuParams() const { return imu_params_; }
+        inline gtsam::PreintegrationCombinedParams getImuParams() const { return imu_params_; }
         inline gtsam::imuBias::ConstantBias getImuBias() const { return prior_imu_bias_; }
 
         bool readDatasetLine(double &timestamp,
@@ -71,7 +71,7 @@ namespace legged
         const std::string dataset_csv_path_;
 
         LegConfigMap leg_config_map_;
-        boost::shared_ptr<gtsam::PreintegrationCombinedParams> imu_params_;
+        gtsam::PreintegrationCombinedParams imu_params_;
         gtsam::imuBias::ConstantBias prior_imu_bias_;
 
         io::CSVReader<23 + 7> csv_reader_;

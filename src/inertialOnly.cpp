@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
 
     legged::Dataloader dataloader = legged::Dataloader(imuConfigPath, legConfigFilePath, datasetFilePath);
     legged::LegConfigMap legConfigs = dataloader.getLegConfigs();
-    auto imuParam = dataloader.getImuParams();
+    auto imuParam = boost::make_shared<gtsam::PreintegrationCombinedParams>(dataloader.getImuParams());
     auto imuBias = dataloader.getImuBias();
 
     // Load Leg Configs
