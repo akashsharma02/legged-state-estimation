@@ -6,70 +6,70 @@ r3: [0, 1, 0]
 # x, y, z, i, j, k, w
 # Base to Back Right Hip
 # This should stay constant
-brbTh: [-0.137, -0.039, 0.022, 0.000, 0.000, 0.000, 1.000]
+back_rightbase_T_joint: [-0.137, -0.039, 0.022, 0.000, 0.000, 0.000, 1.000]
 
 # Back Right Hip to Back Right Foot at ZERO Configuration
-brhTf: [-0.004, -0.063, -0.244, 0.000, 0.000, 0.000, 1.000]
+back_righthip_T_foot: [-0.004, -0.063, -0.244, 0.000, 0.000, 0.000, 1.000]
 
 # Back Right Hip to Back right Upper leg
-brhTul: [0.002, -0.045, -0.009, 0.000, 0.000, 0.000, 1.000]
+back_righthip_T_ul: [0.002, -0.045, -0.009, 0.000, 0.000, 0.000, 1.000]
 
 # Back Right Upper leg to Back right lower leg
-brulTll: [-0.005, -0.018, -0.109, 0.000, 0.000, 0.000, 1.000]
+back_rightul_T_ll: [-0.005, -0.018, -0.109, 0.000, 0.000, 0.000, 1.000]
 
 # Back right lower leg to Back right foot
-brllTf: [0.000, 0.000, -0.127, 0.000, 0.000, 0.000, 1.000]
+back_rightll_T_foot: [0.000, 0.000, -0.127, 0.000, 0.000, 0.000, 1.000]
 
 # x, y, z, i, j, k, w
 # Base to Back Left Hip
 # This should stay constant
-blbTh: [-0.137, 0.039, 0.022, 0.000, 0.000, 0.000, 1.000]
+back_leftbase_T_joint: [-0.137, 0.039, 0.022, 0.000, 0.000, 0.000, 1.000]
 
 # # Back Left Hip to Back Left Foot at ZERO Configuration
-blhTf: [-0.003, 0.063, -0.244, 0.000, 0.000, 0.000, 1.000]
+back_lefthip_T_foot: [-0.003, 0.063, -0.244, 0.000, 0.000, 0.000, 1.000]
 
 # Back Left Hip to Back Left Upper leg
-blhTul: [0.002, 0.045, -0.009, 0.000, 0.000, 0.000, 1.000]
+back_lefthip_T_ul: [0.002, 0.045, -0.009, 0.000, 0.000, 0.000, 1.000]
 
 # Back Left Upper leg to Back Left lower leg
-blulTll: [-0.005, 0.018, -0.109, 0.000, 0.000, 0.000, 1.000]
+back_leftul_T_ll: [-0.005, 0.018, -0.109, 0.000, 0.000, 0.000, 1.000]
 
 # Back Left lower leg to Back Left foot
-blllTf: [0.000, 0.000, -0.127, 0.000, 0.000, 0.000, 1.000]
+back_leftll_T_foot: [0.000, 0.000, -0.127, 0.000, 0.000, 0.000, 1.000]
 
 
 # x, y, z, i, j, k, w
 # Base to Front Right Hip
 # This should stay constant
-frbTh: [0.091, -0.039, 0.022, 0.000, 0.000, 0.000, 1.000]
+front_rightbase_T_joint: [0.091, -0.039, 0.022, 0.000, 0.000, 0.000, 1.000]
 
 # Back Front Hip to Back Front Foot at ZERO Configuration
-frhTf: [-0.003, -0.063, -0.244, 0.000, 0.000, 0.000, 1.000]
+front_righthip_T_foot: [-0.003, -0.063, -0.244, 0.000, 0.000, 0.000, 1.000]
 
 # Back Front Hip to Back Front Upper leg
-frhTul: [0.002, -0.045, -0.009, 0.000, 0.000, 0.000, 1.000]
+front_righthip_T_ul: [0.002, -0.045, -0.009, 0.000, 0.000, 0.000, 1.000]
 
 # Back Front Upper leg to Back Front lower leg
-frulTll: [-0.005, -0.018, -0.109, 0.000, 0.000, 0.000, 1.000]
+front_rightul_T_ll: [-0.005, -0.018, -0.109, 0.000, 0.000, 0.000, 1.000]
 
 # Back Front lower leg to Back Front foot
-frllTf: [0.000, 0.000, -0.127, 0.000, 0.000, 0.000, 1.000]
+front_rightll_T_foot: [0.000, 0.000, -0.127, 0.000, 0.000, 0.000, 1.000]
 
 
 # x, y, z, i, j, k, w
 # Base to Front Left Hip
 # This should stay constant
-flbTh: [0.091, 0.039, 0.022, 0.000, 0.000, 0.000, 1.000]
+front_leftbase_T_joint: [0.091, 0.039, 0.022, 0.000, 0.000, 0.000, 1.000]
 
 # # Front Left Hip to Front Left Foot at ZERO Configuration
-flhTf: [-0.003, 0.063, -0.244, 0.000, 0.000, 0.000, 1.000]
+front_lefthip_T_foot: [-0.003, 0.063, -0.244, 0.000, 0.000, 0.000, 1.000]
 
 # Front Left Hip to Front Left Upper leg
-flhTul: [0.002, 0.045, -0.009, 0.000, 0.000, 0.000, 1.000]
+front_lefthip_T_ul: [0.002, 0.045, -0.009, 0.000, 0.000, 0.000, 1.000]
 
 # Front Left Upper leg to Front Left lower leg
-flulTll: [-0.005, 0.018, -0.109, 0.000, 0.000, 0.000, 1.000]
+front_leftul_T_ll: [-0.005, 0.018, -0.109, 0.000, 0.000, 0.000, 1.000]
 
 # Front Left lower leg to Front Left foot
-flllTf: [0.000, 0.000, -0.127, 0.000, 0.000, 0.000, 1.000]
+front_leftll_T_foot: [0.000, 0.000, -0.127, 0.000, 0.000, 0.000, 1.000]
 
