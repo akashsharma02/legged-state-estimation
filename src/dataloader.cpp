@@ -136,7 +136,7 @@ namespace legged
                                      gtsam::Pose3& final_pose_reading,
                                      gtsam::Vector6& imu_reading,
                                      std::array<gtsam::Vector3, 4>& leg_encoder_readings,
-                                     std::array<int, 4>& leg_contact_readings)
+                                     legged::LegContactMeasurements& leg_contact_readings)
     {
         double ts;
         double x, y, z, i, j, k, w;
@@ -146,7 +146,7 @@ namespace legged
         double bl0, bl1, bl2;
         double br0, br1, br2;
 
-        int flc, frc, blc, brc;
+        bool flc, frc, blc, brc;
 
         // clang-format off
         bool success = csv_reader_.read_row(ts,
@@ -171,7 +171,10 @@ namespace legged
         leg_encoder_readings.at(2) = gtsam::Vector3(bl0, bl1, bl2);
         leg_encoder_readings.at(3) = gtsam::Vector3(br0, br1, br2);
 
-        leg_contact_readings = {flc, frc, blc, brc};
+        leg_contact_readings.frontleft = flc;
+        leg_contact_readings.frontright = frc;
+        leg_contact_readings.backleft = blc;
+        leg_contact_readings.backright = brc;
 
         return success;
     }

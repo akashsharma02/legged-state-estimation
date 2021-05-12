@@ -46,10 +46,10 @@ namespace legged
         inline gtsam::imuBias::ConstantBias getImuBias() const { return prior_imu_bias_; }
 
         bool readDatasetLine(double &timestamp,
-                             gtsam::Pose3& final_pose_reading,
+                             gtsam::Pose3 &final_pose_reading,
                              gtsam::Vector6 &imu_reading,
                              std::array<gtsam::Vector3, 4> &leg_encoder_readings,
-                             std::array<int, 4> &leg_contact_readings);
+                             legged::LegContactMeasurements &leg_contact_readings);
 
        protected:
         void loadLegConfigs();

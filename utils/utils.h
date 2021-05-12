@@ -52,10 +52,6 @@ namespace utils
         stream.close();
     }
 
-    void writeMultiRobotG2o(const gtsam::NonlinearFactorGraph &graph,
-                            const gtsam::Values &estimate,
-                            const std::string &filename);
-
     inline std::string printKey(const gtsam::Key& key)
     {
         return fmt::format("{}{}", static_cast<char>(gtsam::symbolChr(key)), gtsam::symbolIndex(key));
