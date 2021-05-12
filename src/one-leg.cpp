@@ -59,8 +59,8 @@ int main(int argc, char* argv[])
 
     std::string leg_config_path;
     app.add_option("-l, --leg-config", leg_config_path, "Path to Leg configuration yaml file");
-    std::string dataset_file_path;
-    app.add_option("-d, --data", dataset_file_path, "Path to dataset csv file");
+    std::string dataset_csv_path;
+    app.add_option("-d, --data", dataset_csv_path, "Path to dataset csv file");
     std::string imu_config_path;
     app.add_option("-i, --imu-config", imu_config_path, "Path to IMU configuration yaml file");
     size_t max_index = 10;
@@ -171,6 +171,7 @@ int main(int argc, char* argv[])
     std::array<gtsam::Vector3, 4> leg_encoder_readings;
     gtsam::Vector encoder;
     std::array<int, 4> leg_contact_readings;
+    bool robotReady = false;
 
     while (
         dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, leg_encoder_readings, leg_contact_readings) &&
