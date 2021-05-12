@@ -31,8 +31,8 @@ namespace legged
                        const double &timestamp)
             : acc_(acc_x, acc_y, acc_z), omega_(ang_vel_x, ang_vel_y, ang_vel_z), timestamp_(timestamp){};
 
-        ImuMeasurement(const Eigen::Vector3d &acc, const Eigen::Vector3d &omega, const double &timestamp)
-            : acc_(a.x, a.y, a.z), omega_(omega.x, omega.y, omega.z), timestamp_(timestamp){};
+        ImuMeasurement(const Eigen::Vector3d &a, const Eigen::Vector3d &omega, const double &timestamp)
+            : acc_(a(0), a(1), a(2)), omega_(omega(0), omega(1), omega(2)), timestamp_(timestamp){};
 
         ImuMeasurement(const cv::Point3d &acc, const cv::Point3d &omega, const double &timestamp)
             : acc_(acc.x, acc.y, acc.z), omega_(omega.x, omega.y, omega.z), timestamp_(timestamp){};
@@ -53,7 +53,7 @@ namespace legged
     class ImuBias
     {
        public:
-        ImuBias() : bias_acc_(Eigen::Vector3d::Zero()), biad_omega_(Eigen::Vector3d::Zero()) {}
+        ImuBias() : bias_acc_(Eigen::Vector3d::Zero()), bias_omega_(Eigen::Vector3d::Zero()) {}
 
         ImuBias(const float &b_acc_x,
                 const float &b_acc_y,
@@ -69,16 +69,16 @@ namespace legged
             bias_omega_ = bias_omega;
         }
 
-        inline Eigen::Vector<double, 6> Bias::getBiasVector() const
+        inline Eigen::Matrix<double, 6, 1> getBiasVector() const
         {
-            Eigen::Vector<double, 6> b;
-            b << bias_acc_ << bias_omega_;
+            Eigen::Matrix<double, 6, 1> b;
+            b << bias_acc_, bias_omega_;
             return b;
         }
 
-        inline Eigen::Matrix<double, 3, 1> Bias::getAccelBias() const { return bias_acc_; }
+        inline Eigen::Matrix<double, 3, 1> getAccelBias() const { return bias_acc_; }
 
-        inline Eigen::Vector3d Bias::getAngVelBias() const { return bias_omega_; }
+        inline Eigen::Vector3d getAngVelBias() const { return bias_omega_; }
 
         inline std::string print() const
         {
@@ -99,7 +99,7 @@ namespace legged
         IMUPosition(const Eigen::Vector3d &p) : pos_(p){};
 
         Eigen::Vector3d getImuPosition() const { return pos_; }
-        void setPos(const double px, const double py, const double pz) { pos_(px, py, pz); }
+        void setPos(const double px, const double py, const double pz) { pos_ = Eigen::Vector3d(px, py, pz); }
 
        public:
         Eigen::Vector3d pos_;

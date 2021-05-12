@@ -19,13 +19,13 @@
 #include <string.h>
 
 // Factors
-#include "ContactUtils.h"
+// #include "ContactUtils.h"
 #include "BetweenContactFactor.h"
 
 // Utils
 #include "fast-cpp-csv-parser/csv.h"
 #include "dataloader.h"
-#include "IMU.h"
+// #include "imu.h"
 
 #include <gtsam/inference/Symbol.h>
 // #include <gtsam/navigation/CombinedImuFactor.h>
@@ -36,8 +36,8 @@
 
 using namespace gtsam;
 
-// using symbol_shorthand::B; // Bias
-// using symbol_shorthand::V; // Velocity
+using symbol_shorthand::B; // Bias
+using symbol_shorthand::V; // Velocity
 using symbol_shorthand::X; // Body Pose
 
 void saveTrajectory(const Values &, uint64_t, std::string);
@@ -47,43 +47,37 @@ int main(int argc, char* argv[])
     utils::setLogPattern();
     CLI::App app{"Test file for Multi Leg Contact Factor"};
 
-    std::string configFilePath("");
+    std::string legConfigFilePath("");
     std::string datasetFilePath("");
     std::string imuConfigPath("");
     std::string outputFile("");
-    int maxIdx = 10;
+    std::string unOptimizedFile("");
+    size_t maxIdx = 10;
     bool debug = false;
-    app.add_option("-c, --config", configFilePath, "Leg Configuration input");
+    app.add_option("-c, --config", legConfigFilePath, "Leg Configuration input");
     app.add_option("-d, --data", datasetFilePath, "Dataset input");
     app.add_option("-i, --IMU", imuConfigPath, "IMU Config File Path");
     app.add_option("-m, --maxIdx", maxIdx, "max index for number of data to be read");
     app.add_option("-b, --debug", debug, "debug options");
     app.add_option("-o, --output", outputFile, "trajectory Output filename");
+    app.add_option("-u, --unopt", unOptimizedFile, "trajectory Output of unoptimized graph");
     CLI11_PARSE(app, argc, argv);
 
-    // Setup Dataset
-    io::CSVReader<23 + 7> datafile(datasetFilePath);
-    datafile.read_header(io::ignore_extra_column,
-        "ts",
-        "x","y","z","i","j","k","w",
-        "wx","wy","wz","ax","ay","az","fl0","fl1","fl2",
-        "fr0","fr1","fr2","bl0","bl1","bl2","br0","br1","br2",
-        "flc","frc","blc","brc"
-    );
-    double ts,wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2;
-    int flc,frc,blc,brc;
-    int idx = 0;
+    legged::Dataloader dataloader = legged::Dataloader(imuConfigPath, legConfigFilePath, datasetFilePath);
+    legged::LegConfigMap legConfigs = dataloader.getLegConfigs();
+    auto imuParam = boost::make_shared<gtsam::PreintegrationCombinedParams>(dataloader.getImuParams());
+    auto imuBias = dataloader.getImuBias();
 
     // Load Leg Configs
-    std::map<std::string, gtsam::LegConfig> legConfigs = DataLoader::loadLegConfig(configFilePath);
+    // std::map<std::string, gtsam::LegConfig> legConfigs = DataLoader::loadLegConfig(configFilePath);
 
     // Setup IMU Configs
-    auto p = DataLoader::loadIMUConfig(imuConfigPath);
-    auto priorBias = DataLoader::getIMUBias(imuConfigPath);
+    // auto p = DataLoader::loadIMUConfig(imuConfigPath);
+    // auto priorBias = DataLoader::getIMUBias(imuConfigPath);
     // imuBias::ConstantBias zero_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
     // This is for the Base
     std::shared_ptr<PreintegrationType> preintegrated =
-        std::make_shared<PreintegratedCombinedMeasurements>(p, priorBias);
+        std::make_shared<PreintegratedCombinedMeasurements>(imuParam, imuBias);
 
     // Setup Prior Values
     Rot3 priorRotation(I_3x3); // Default Always identity
@@ -94,9 +88,11 @@ int main(int argc, char* argv[])
     uint64_t stateCount = 0;
     NavState prevState(priorPose, priorVelocity);
     NavState propState = prevState;
-    // imuBias::ConstantBias prevBias = priorBias;
+    imuBias::ConstantBias prevBias = imuBias;
 
     initialValues.insert(X(stateCount), priorPose);
+    initialValues.insert(V(stateCount), priorVelocity);
+    initialValues.insert(B(stateCount), prevBias);
 
     // Setup FactorGraph
     NonlinearFactorGraph* graph = new NonlinearFactorGraph();
@@ -115,74 +111,97 @@ int main(int argc, char* argv[])
     auto biasNoise = noiseModel::Isotropic::Sigma(6, 1e-3);
 
     graph->addPrior(X(stateCount), priorPose, priorPoseNoise);
+    graph->addPrior(V(stateCount), priorVelocity, priorVelNoise);
+    graph->addPrior(B(stateCount), prevBias, biasNoise);
+    
 
-    Values result;
-    if (debug) {
-        graph->print("\nFactor Graph:\n");
-        initialValues.print("\nInitial Estimate:\n");
-        LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
-        result = optimizer.optimize();
-        result.print("Final Result:\n");
-    }
-
-    double x, y, z, i, j, k, w;
-    Pose3 lastPose = priorPose;
+    Values finalResult;
 
     int imu_cycle = 0;
     int max_imu = 200;
-    ORB_SLAM2::PreintegratedIMU new_meas;
-    new_meas.initialize();
-    cv::Mat g = cv::Mat::zeros(3, 1, CV_64F);
-    new_meas.setGravity(g);
+    int lp_cycle = 0;
+    int max_lp = 10;
+    int last_lp_index = 0;
+    gtsam::Pose3 lastPose = priorPose;
+    size_t index = 0;
+    double timestamp;
+    gtsam::Pose3 final_pose_reading;
+    gtsam::Vector6 imu_reading;
+    std::array<gtsam::Vector3, 4> leg_encoder_readings;
+    std::array<int, 4> leg_contact_readings;
 
-    cv::Point3d acc, angVel;
-    Matrix R;
-    Point3 P;
-    Matrix v;
-    while (datafile.read_row(
-        ts,
-        x, y, z, i, j, k, w,
-        wx,wy,wz,ax,ay,az,fl0,fl1,fl2,fr0,fr1,fr2,bl0,bl1,bl2,br0,br1,br2,flc,frc,blc,brc
-        ) && idx++ < maxIdx) {
+    double dt = 0.005;
+
+    while (dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, 
+        leg_encoder_readings, leg_contact_readings) && index++ < maxIdx) {
 
         if (imu_cycle < max_imu) {
             imu_cycle++;
-            // imu *= 200;
-            ORB_SLAM2::ImuMeasure meas(ax, ay, az, wx, wy, wz, ts);
-            acc = meas._a;
-            angVel = meas._w;
-            new_meas.integrateMeasurement(acc, angVel, 1./200);
+            preintegrated->integrateMeasurement(imu_reading.head<3>(), imu_reading.tail<3>(), 0.005);
         } else {
             imu_cycle = 0;
+            lp_cycle++;
             stateCount++;
-            ORB_SLAM2::ImuMeasure meas(ax, ay, az, wx, wy, wz, ts);
-            acc = meas._a;
-            angVel = meas._w;
-            new_meas.integrateMeasurement(acc, angVel, 1./200);
-            R = toMatrix3d(new_meas.getRotation());
-            P = toPoint3(new_meas.getTranslation());
-            Pose3 wTb = Pose3(Rot3(R), P);
-            BetweenFactor<Pose3> btf(X(stateCount - 1), X(stateCount), lastPose.between(wTb), priorPoseNoise);
-            initialValues.insert(X(stateCount), wTb);
-            lastPose = wTb;
-            graph->add(btf);
+            preintegrated->integrateMeasurement(imu_reading.head<3>(), imu_reading.tail<3>(), 0.005);
+            auto combinedMeasurement = dynamic_cast<const PreintegratedCombinedMeasurements&>(
+                *preintegrated);
+            CombinedImuFactor imuFactor(X(stateCount - 1), V(stateCount - 1), 
+                X(stateCount), V(stateCount), B(stateCount - 1), B(stateCount),
+                combinedMeasurement);
+            graph->add(imuFactor);
+
+            propState = preintegrated->predict(prevState, prevBias);
+            // std::cout << "Prev State: " << prevState << std::endl;
+            // if (index > 500) {
+            //     std::cout << "prop State: " << propState << std::endl;
+            // }
+            // std::cout << "Rotation Difference: " << propState.pose().rotation().between(final_pose_reading.rotation()) << std::endl;
+            // std::cout << "angV: " << imu_reading_pl.tail<3>() << std::endl;
+            // std::cout << "Pose Reading: " << final_pose_reading << std::endl;
+            // std::cout << "-----------------" << std::endl;
+            // std::cout << "propState difference: " << prevState.pose().between(propState.pose()) << std::endl;
+            // std::cout << "Absolute Difference: " << lastPose.between(final_pose_reading) << std::endl;
+            // std::cout << "preintegrated Difference: " << preintegrated->deltaXij() << std::endl;
+            // gtsam::Pose3 tempP(r, p);
+            // initialValues.insert(X(stateCount), final_pose_reading);
+            initialValues.insert(X(stateCount), propState.pose());
+            initialValues.insert(V(stateCount), propState.v());
+            initialValues.insert(B(stateCount), prevBias);
+
+            if (lp_cycle > max_lp) {
+                lp_cycle = 0;
+                BetweenFactor<Pose3> lp_factor(X(last_lp_index), X(stateCount), lastPose.between(final_pose_reading),
+                    noiseModel::Diagonal::Sigmas((Vector(6) << 0.001, 0.001, 0.001, 0.005, 0.005, 0.005).finished()));
+                graph->add(lp_factor);
+                lastPose = final_pose_reading;
+                last_lp_index = stateCount;
+            }
+
+
+
+            LevenbergMarquardtParams params;
+            // params.setVerbosityLM("SUMMARY");
+            LevenbergMarquardtOptimizer optimizer(*graph, initialValues, params);
+            Values result = optimizer.optimize();
+            prevState = NavState(result.at<Pose3>(X(stateCount)), result.at<Vector3>(V(stateCount)));
+            prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
+            prevState = propState;
+
+            // Reset the preintegration object.
+            preintegrated->resetIntegrationAndSetBias(prevBias);
+            // std::cout << "Interpolated Bias" << prevBias << std::endl;
         }
     }
 
-
-    // Add a small final loop closure
-    Eigen::Quaternion finRot3(w, i, j, k);
-    Rot3 r(finRot3);
-    Point3 t(x, y, z);
-    Pose3 finalPose = Pose3(r, t);
-    // BetweenFactor<Pose3> lp(X(0), X(stateCount), priorPose.between(finalPose), priorPoseNoise);
-    // graph->add(lp);
-
     LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
-    result = optimizer.optimize();
-    saveTrajectory(initialValues, stateCount, outputFile);
-
+    finalResult = optimizer.optimize();
+    saveTrajectory(finalResult, stateCount, outputFile);
     std::cout << "Sucessfully Completed" << std::endl;
+
+    if (unOptimizedFile.compare("") != 0) {
+        std::cout << "Saving Unoptimized trajectory" << std::endl;
+        saveTrajectory(initialValues, stateCount, unOptimizedFile);
+    }
 }
 
 void saveTrajectory(const Values & v, uint64_t stateCount, std::string filename) {
