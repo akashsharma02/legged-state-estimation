@@ -97,10 +97,10 @@ int main(int argc, char* argv[])
     // Setup FactorGraph
     NonlinearFactorGraph* graph = new NonlinearFactorGraph();
     // if (false) {
-        ISAM2Params parameters;
-        parameters.relinearizeThreshold = 0.01;
-        parameters.relinearizeSkip = 1;
-        ISAM2* isam2 = new ISAM2(parameters);
+    // ISAM2Params parameters;
+    // parameters.relinearizeThreshold = 0.01;
+    // parameters.relinearizeSkip = 1;
+    // ISAM2* isam2 = new ISAM2(parameters);
     // }
 
     // Setup Prior Factors
@@ -121,16 +121,16 @@ int main(int argc, char* argv[])
     int max_imu = 200;
     int lp_cycle = 0;
     int max_lp = 10;
-    int last_lp_index = 0;
+    uint64_t last_lp_index = 0;
     gtsam::Pose3 lastPose = priorPose;
     size_t index = 0;
     double timestamp;
     gtsam::Pose3 final_pose_reading;
     gtsam::Vector6 imu_reading;
     std::array<gtsam::Vector3, 4> leg_encoder_readings;
-    std::array<int, 4> leg_contact_readings;
+    legged::LegContactMeasurements leg_contact_readings;
 
-    double dt = 0.005;
+    // double dt = 0.005;
 
     while (dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, 
         leg_encoder_readings, leg_contact_readings) && index++ < maxIdx) {

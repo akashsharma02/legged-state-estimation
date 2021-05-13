@@ -22,6 +22,8 @@ Remaining used packages should get built automatically during cmake configuratio
 ./build/bin/inertial -c dataset/config/spot_mini_mini.yaml -d dataset/data/raw_collected/sequence1.txt -i dataset/config/imu_fake.yaml -b false -o evaluation/inertialOnlyTrajectory.txt -m 24000
 
 ./bin/inertialOnly -c ../dataset/config/spot_mini_mini.yaml -d ../dataset/data/raw_collected/sequence10.txt  -i ../dataset/config/imu_fake.yaml -m 24000 -b false -o ../evaluation/Trajectory.txt
+
+./bin/oneLeg -c ../dataset/config/spot_mini_mini.yaml -d ../dataset/data/raw_collected/sequence10.txt -i ../dataset/config/imu_fake.yaml -m 24000 -o ../evaluation/test.txt -v true -l true 
 ```
 Writes to `evaluation/inertialOnlyTrajectory.txt`, then go into `evaluation`
 

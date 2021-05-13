@@ -19,14 +19,14 @@
 namespace gtsam
 {
     template<class POSE>
-    class BetweenPointContactFactor : public NoiseModelFactor4<POSE, POSE, POSE, POSE>
+    class BetweenPointContactFactor : public NoiseModelFactor3<POSE, POSE, POSE>
     {
        public:
         // typedef POSE T;
 
        private:
         typedef BetweenPointContactFactor<POSE> This;
-        typedef NoiseModelFactor4<POSE, POSE, POSE, POSE> Base;
+        typedef NoiseModelFactor3<POSE, POSE, POSE> Base;
 
        public:
         typedef typename boost::shared_ptr<BetweenPointContactFactor> shared_ptr;
@@ -34,8 +34,8 @@ namespace gtsam
         // Serialization
         BetweenPointContactFactor() {}
 
-        BetweenPointContactFactor(Matrix covariance, Key base1, Key base2, Key contact1, Key contact2, const POSE& measured)
-            : Base(noiseModel::Gaussian::Covariance(covariance), base1, base2, contact1, contact2)
+        BetweenPointContactFactor(Matrix covariance, Key base1, Key contact1, Key contact2, const POSE& measured)
+            : Base(noiseModel::Gaussian::Covariance(covariance), base1, contact1, contact2), measured_(measured)
         {
         }
 
@@ -52,7 +52,7 @@ namespace gtsam
             // Stream to s, etc
             // TODO:
             std::cout << s << "BetweenPointContactFactor(" << keyFormatter(this->key1()) << "," << keyFormatter(this->key2())
-                      << "," << keyFormatter(this->key3()) << "," << keyFormatter(this->key4()) << ")\n";
+                      << "," << keyFormatter(this->key3()) << ")\n";
             this->noiseModel_->print(" noise model:  ");
         }
 
@@ -70,11 +70,10 @@ namespace gtsam
 
         typedef Eigen::Matrix<double, 3, 1> Vector3;
         Vector evaluateError(const Pose3& posei,
-                             const Pose3& posej,
+                            //  const Pose3& posej,
                              const Pose3& contacti,
                              const Pose3& contactj,
                              boost::optional<Matrix&> H1 = boost::none,
-                             boost::optional<Matrix&> H2 = boost::none,
                              boost::optional<Matrix&> H3 = boost::none,
                              boost::optional<Matrix&> H4 = boost::none) const override
         {
@@ -89,10 +88,10 @@ namespace gtsam
                     (Matrix(3, 3) << 0, -error(2), error(1), error(2), 0, -error(0), -error(1), error(0), 0).finished();
             }
 
-            if (H2)
-            {
-                *H2 = Matrix::Zero(3, 6);
-            }
+            // if (H2)
+            // {
+            //     *H2 = Matrix::Zero(3, 6);
+            // }
 
             if (H3)
             {
@@ -109,13 +108,14 @@ namespace gtsam
             return error;
         }
 
-        // const VALUE& measured() const {
-        //     return measured_;
-        // }
+        const POSE& measured() const {
+            return measured_;
+        }
 
         std::size_t size() const { return 4; }
 
        private:
+            POSE measured_;
         // Serialization
         // TODO:
     };
