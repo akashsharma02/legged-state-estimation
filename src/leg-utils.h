@@ -26,21 +26,42 @@ namespace legged
     class LegConfig
     {
        public:
-        LegConfig(const std::vector<gtsam::Vector6> &twists,
-                  gtsam::Pose3 joint_T_base,
+        LegConfig(const std::vector<gtsam::Vector6>& twists,
+                  gtsam::Pose3 base_T_joint,
                   gtsam::Pose3 eff_config_t0,
                   gtsam::Matrix3 slip_covariance)
             : twists_(twists),
-              joint_T_base_(joint_T_base),
+              base_T_joint_(base_T_joint),
               end_eff_config_t0_(eff_config_t0),
               slip_covariance_(slip_covariance)
         {
         }
         ~LegConfig() {}
 
-       protected:
+        inline gtsam::Matrix33 getSlipCovariance() const { return slip_covariance_; }
+        inline gtsam::Pose3 getBaseTJoint() const { return base_T_joint_; }
+        inline std::vector<gtsam::Vector6> getTwists() const { return twists_; }
+        inline gtsam::Pose3 getEndEffectorConfig() const { return end_eff_config_t0_; }
+
+        gtsam::Matrix63 baseToContactJacobian(gtsam::Vector3 encoder)
+    {
+    Matrix spatial_jacobian = Matrix::Zero(6, 3);
+    Pose3 g                 = leg.firstJointInBase;
+
+    spatial_jacobian.col(0) = leg.twists.at(0);
+    for (size_t i = 1; i < encoder.size(); i++)
+    {
+    auto twist = leg.twists.at(i) * encoder(i);
+    std::cout << leg.twists.at(i) << std::endl;
+    spatial_jacobian.col(i) = g.Adjoint(leg.twists.at(i));
+    g                       = g * Pose3::Expmap(twist);
+    }
+    return spatial_jacobian;
+    }
+
+       public:
         std::vector<gtsam::Vector6> twists_;
-        gtsam::Pose3 joint_T_base_;
+        gtsam::Pose3 base_T_joint_;
         gtsam::Pose3 end_eff_config_t0_;
         gtsam::Matrix33 slip_covariance_;
     };
@@ -58,7 +79,6 @@ namespace legged
         bool frontright;
         bool backleft;
         bool backright;
-
     };
 
     /*! \struct ContactStates
@@ -67,9 +87,9 @@ namespace legged
      */
     struct ContactStates
     {
-        ContactStates(const gtsam::Key &base_make_contact_frame,
-                      const gtsam::Key &foot_make_contact_frame,
-                      const gtsam::Key &foot_break_contact_frame)
+        ContactStates(const gtsam::Key& base_make_contact_frame,
+                      const gtsam::Key& foot_make_contact_frame,
+                      const gtsam::Key& foot_break_contact_frame)
             : base_make_contact_frame_(base_make_contact_frame),
               foot_make_contact_frame_(foot_make_contact_frame),
               foot_break_contact_frame_(foot_break_contact_frame){};
@@ -81,96 +101,63 @@ namespace legged
         gtsam::Key foot_break_contact_frame_;
     };
 
-    class LegMeasurement
+    /*! \class PreintegratedContactMeasurement
+     *  \brief Brief class description
+     *
+     *  Detailed description
+     */
+    class PreintegratedContactMeasurement
     {
        public:
-        LegMeasurement() {}
-        LegMeasurement(LegConfig leg_, Pose3 base, Pose3 contact, double dt, double ts)
+        PreintegratedContactMeasurement(const LegConfig& leg, double imu_rate) : leg_(leg), imu_rate_(imu_rate)
         {
-            leg          = leg_;
-            Matrix B     = base.rotation().transpose() * contact.rotation().transpose() * dt;
-            measureNoise = B * leg.covSlip * B.transpose();
-            ts_          = ts;
-            makeContact  = contact;
+            resetIntegration();
         }
 
-        ~LegMeasurement() {}
+        virtual ~PreintegratedContactMeasurement();
 
-        static Matrix efInBaseExpMap(Vector encoder, const LegConfig &leg)
+        void initialize(const gtsam::Pose3& base_frame, const gtsam::Pose3& contact_frame)
         {
-            Pose3 g = leg.firstJointInBase;
-            for (size_t i = 0; i < encoder.size(); i++)
+            gtsam::Pose3 contact_T_base = base_frame.compose(contact_frame);
+            gtsam::Matrix33 B           = contact_T_base.rotation().matrix() * imu_rate_;
+            measure_noise_ += B * leg_.getSlipCovariance() * B.transpose();
+        }
+
+        void resetIntegration()
+        {
+            measure_noise_.setZero(); /* TODO: Not sure if should add the first measurement information */
+        }
+
+        inline gtsam::Matrix33 preintMeasCov() const { return measure_noise_; }
+
+        inline void integrateMeasurement(const gtsam::Rot3& relative_imu_pim, const gtsam::Vector3 leg_encoder_reading)
+        {
+            gtsam::Pose3 contact_T_base = getBaseTContactFromEncoder(leg_encoder_reading).inverse();
+
+            //! \delta \tilde {R_{ik}} f_R(\tilde{\alpha_k}) \delta t
+            gtsam::Matrix33 B = relative_imu_pim.matrix() * contact_T_base.rotation().matrix() * imu_rate_;
+
+            measure_noise_ += B * leg_.getSlipCovariance() * B.transpose();
+        }
+
+       protected:
+        inline gtsam::Pose3 getBaseTContactFromEncoder(const gtsam::Vector3& leg_encoder_reading)
+        {
+            gtsam::Pose3 base_T_contact = leg_.getBaseTJoint();
+            for (size_t i = 0; i < leg_encoder_reading.size(); i++)
             {
-                auto twist = leg.twists.at(i) * encoder(i);
-                g          = g * Pose3::Expmap(twist);
+                auto twist     = leg_.getTwists().at(i) * leg_encoder_reading(static_cast<Eigen::Index>(i));
+                base_T_contact = base_T_contact * gtsam::Pose3::Expmap(twist);
             }
-            g = g * leg.endEffectorConfiguration0;
-            return g.matrix();
+            base_T_contact = base_T_contact * leg_.getEndEffectorConfig();
+            return base_T_contact;
         }
 
-        static Matrix efInBase(Vector encoder, const LegConfig &leg)
-        {
-            auto g = leg.firstJointInBase;
-            g      = g * gtsam::Pose3(gtsam::Rot3::Rx(encoder(0)), gtsam::Point3());
-            g      = g * leg.jTul;
-            g      = g * gtsam::Pose3(gtsam::Rot3::Ry(encoder(1)), gtsam::Point3());
-            g      = g * leg.ulTll;
-            g      = g * gtsam::Pose3(gtsam::Rot3::Ry(encoder(2)), gtsam::Point3());
-            g      = g * leg.llTf;
-            return g.matrix();
-        }
-
-        static Matrix baseToContactJacobian(Vector encoder, const LegConfig &leg)
-        {
-            Matrix spatial_jacobian = Matrix::Zero(6, 3);
-            Pose3 g                 = leg.firstJointInBase;
-
-            spatial_jacobian.col(0) = leg.twists.at(0);
-            for (size_t i = 1; i < encoder.size(); i++)
-            {
-                auto twist = leg.twists.at(i) * encoder(i);
-                std::cout << leg.twists.at(i) << std::endl;
-                spatial_jacobian.col(i) = g.Adjoint(leg.twists.at(i));
-                g                       = g * Pose3::Expmap(twist);
-            }
-            return spatial_jacobian;
-        }
-
-        // Update Covariance
-        // Pose3 iGj i -> j, Pose J in frame of Pose i
-        // Obtained through IMU estimation
-        void integrateNewMeasurement(Rot3 iGj, Vector encoder, double ts)
-        {
-            double dt = ts - ts_;
-            Matrix B  = iGj.matrix() * efInBase(encoder, leg).block(0, 0, 3, 3) * dt;
-            measureNoise += B * leg.covSlip * B.transpose();
-        }
-
-        Matrix getNoise() { return measureNoise; };
-
-       public:
-        LegConfig leg;
-        Matrix measureNoise;
-        double ts_;
-        Pose3 makeContact;
+        const LegConfig& leg_;
+        double imu_rate_;
+        gtsam::Matrix33 measure_noise_;
     };
 
-    Eigen::Matrix<double, 3, 3> toMatrix3d(const cv::Mat &cvMat3)
-    {
-        Eigen::Matrix<double, 3, 3> M;
-
-        M << cvMat3.at<float>(0, 0), cvMat3.at<float>(0, 1), cvMat3.at<float>(0, 2), cvMat3.at<float>(1, 0),
-            cvMat3.at<float>(1, 1), cvMat3.at<float>(1, 2), cvMat3.at<float>(2, 0), cvMat3.at<float>(2, 1),
-            cvMat3.at<float>(2, 2);
-
-        return M;
-    }
-
-    inline Point3 toPoint3(const cv::Mat &cvMat)
-    {
-        Point3 p(cvMat.at<double>(0, 0), cvMat.at<double>(1, 0), cvMat.at<double>(2, 0));
-        return p;
-    }
 
 }  // namespace legged
 

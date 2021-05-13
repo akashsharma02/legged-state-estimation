@@ -37,7 +37,7 @@
 #include "dataloader.h"
 #include "leg-utils.h"
 
-void saveTrajectory(const Values&, uint64_t);
+void saveTrajectory(const gtsam::Values&, uint64_t);
 
 int main(int argc, char* argv[])
 {
@@ -64,15 +64,12 @@ int main(int argc, char* argv[])
     legged::LegConfigMap leg_configs = dataloader.getLegConfigs();
     auto imu_params                  = boost::make_shared<PreintegrationCombinedParams>(dataloader.getImuParams());
     auto imu_bias                    = dataloader.getImuBias();
-    auto imu_rate                    = 1.0 / 200.0; //! TODO: Move this to dataloader?
-
-    //! Pre-integrate IMU measurements for the base frame
-    std::shared_ptr<PreintegrationType> preintegrated = std::make_shared<PreintegratedImuMeasurements>(imu_params, imu_bias);
+    auto imu_rate                    = 1.0 / 200.0;  //! TODO: Move this to dataloader?
 
     //! Create NonlinearFactorGraph and set of values for the optimization
     Values initial_values;
     NonlinearFactorGraph* graph = new NonlinearFactorGraph();
-    size_t index                = 0;
+    size_t state_idx            = 0;
 
     //! Symbol shorthand names to refer to common state variables
     // clang-format off
@@ -87,7 +84,7 @@ int main(int argc, char* argv[])
 
     //! Initialize prior state of the robot
     //! Prior pose of the base frame is always R = I, and t = (0, 0, 0.195) approximate robot rest height
-    Pose3 prior_pose(I_3x3, Point3(0, 0, 0.194213));
+    Pose3 prior_pose(Rot3(I_3x3), Point3(0, 0, 0.194213));
     auto prior_pose_noise = noiseModel::Diagonal::Sigmas(
         (Vector(6) << 0.001, 0.001, 0.001, 0.05, 0.05, 0.05).finished());  // rad,rad,rad, m, m, m
 
@@ -97,6 +94,8 @@ int main(int argc, char* argv[])
     imuBias::ConstantBias prior_bias = imu_bias;
     auto bias_noise                  = noiseModel::Isotropic::Sigma(6, 1e-3);
 
+    NavState prior_state(prior_pose, prior_velocity);
+
     //! Not used yet
     //! Those are the approximate rest location at spawn (Read frontleftfoot_T_world)
     Pose3 prior_frontleftfoot(Rot3(0, -0.303, 0, 0.953), Point3(0.096, 0.102, 0));
@@ -104,28 +103,40 @@ int main(int argc, char* argv[])
     Pose3 prior_backleftfoot(Rot3(0, -0.303, 0, 0.953), Point3(-0.135, 0.102, 0));
     Pose3 prior_backrightfoot(Rot3(0, -0.303, 0, 0.953), Point3(-0.135, -0.102, 0));
 
-    initial_values.insert(X(index), prior_pose);
-    initial_values.insert(V(index), prior_velocity);
-    initial_values.insert(B(index), prior_bias);
-    graph->addPrior(X(index), prior_pose, prior_pose_noise);
-    graph->addPrior(V(index), prior_velocity, prior_velocity_noise);
-    graph->addPrior(B(index), prior_bias, bias_noise);
+    initial_values.insert(X(state_idx), prior_state.pose());
+    initial_values.insert(V(state_idx), prior_state.v());
+    initial_values.insert(B(state_idx), prior_bias);
+    graph->addPrior(X(state_idx), prior_pose, prior_pose_noise);
+    graph->addPrior(V(state_idx), prior_velocity, prior_velocity_noise);
+    graph->addPrior(B(state_idx), prior_bias, bias_noise);
+
+    //! Initialize previous state_idx variables
+    NavState prev_state(prior_state);
+    imuBias::ConstantBias prev_bias = prior_bias;
 
     //! Read data into these variables
+    size_t index = 0;
     double timestamp;
     gtsam::Pose3 final_pose_reading;
     gtsam::Vector6 imu_reading;
     std::array<gtsam::Vector3, 4> leg_encoder_readings;
-    gtsam::Vector encoder;
     legged::LegContactMeasurements contact, prev_contact;
     bool is_robot_ready = false;
+
+    //! Pre-integrate IMU measurements for the base frame
+    std::shared_ptr<PreintegratedImuMeasurements> preintegrated =
+        std::make_shared<PreintegratedImuMeasurements>(imu_params, imu_bias);
+    //! Pre-integrate leg contact measurements for point-contact factor
+    std::shared_ptr<legged::PreintegratedContactMeasurement> frontleft_contact_pim =
+        std::make_shared<legged::PreintegratedContactMeasurement>(leg_configs.at("front_left"), imu_rate);
 
     while (dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, leg_encoder_readings, contact) &&
            index++ < max_index)
     {
         // Wait until all four legs are on the ground
         // since they are initially floating
-        if (contact.frontleft == contact.frontright == contact.backleft == contact.backright == true && !is_robot_ready)
+        if (contact.frontleft == true && contact.frontright == true && contact.backleft == true &&
+            contact.backright == true && !is_robot_ready)
         {
             is_robot_ready = true;
             INFO("Robot marked ready at {}", index);
@@ -140,48 +151,37 @@ int main(int argc, char* argv[])
         }
         else
         {
+            state_idx++;
+            auto bias = prior_bias;
+
             preintegrated->integrateMeasurement(imu_reading.head<3>(), imu_reading.tail<3>(), imu_rate);
 
-            auto preintIMU = dynamic_cast<const PreintegratedImuMeasurements&>(*preintegrated);
+            NavState pred_state = preintegrated->predict(prev_state, prev_bias);
 
-            ImuFactor imuFactor(
-                X(stateCount - 1), V(stateCount - 1), X(stateCount), V(stateCount), B(stateCount - 1), preintIMU);
-            graph->add(imuFactor);
-            auto bias = priorBias;
+            ImuFactor imu_factor(
+                X(state_idx - 1), V(state_idx - 1), X(state_idx), V(state_idx), B(state_idx - 1), *preintegrated);
+            BetweenFactor<imuBias::ConstantBias> bias_factor(B(state_idx - 1), B(state_idx), bias, bias_noise);
 
-            graph->add(BetweenFactor<imuBias::ConstantBias>(B(stateCount - 1), B(stateCount), bias, biasNoise));
-            propState = preintegrated->predict(prevState, prevBias);
-            initialValues.insert(X(stateCount), propState.pose());
-            initialValues.insert(V(stateCount), propState.v());
-            initialValues.insert(B(stateCount), prevBias);
+            initial_values.insert(X(state_idx), pred_state.pose());
+            initial_values.insert(V(state_idx), pred_state.v());
+            initial_values.insert(B(state_idx), prev_bias);
+            graph->add(imu_factor);
+            graph->add(bias_factor);
 
-            INFO("Graph size before making contact: {}", graph->size());
-            graph->print();
-            INFO("initialValues size: {}", initialValues.size());
-            initialValues.print();
-            // *******************************************
-            // Handle the Legs
-            if (flcl == 1 && flc == 0)
+            //! Front left leg breaks contact
+            if (prev_contact.frontleft == true && contact.frontleft == false)
             {
-                // Front Left Leg breaks contact
-                if (!fl)
-                {
-                    std::cout << "FL Pointer null" << std::endl;
-                    return 1;
-                }
+                const auto& encoder = leg_encoder_readings.at(0);
 
-                INFO("Break contact at timestamp: {}", idx);
+                imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), imu_rate);
 
-                // Vector encoder = (Vector3() << fl0, fl1, fl2).finished();
-                encoder = leg_encoder_readings.at(0);
-                imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
                 fl->integrateNewMeasurement(imuLogQ->deltaRij(), encoder, double(ts) / 200);
                 Matrix noiseMatrix = fl->getNoise();
                 BetweenPointContactFactor contactFactor(noiseMatrix,
                                                         X(flState.baseMakeContact),
-                                                        X(stateCount),
+                                                        X(state_idx),
                                                         Q(flState.contactMakeContact),
-                                                        Q(stateCount),
+                                                        Q(state_idx),
                                                         Pose3());
                 graph->add(contactFactor);
 
@@ -190,22 +190,24 @@ int main(int argc, char* argv[])
                 baseTcontact       = propState.pose().compose(baseTcontact);
                 /* initialValues.insert(Q(flState.contactMakeContact), fl->makeContact); */
 
-                initialValues.insert(Q(stateCount), baseTcontact);
+                initialValues.insert(Q(state_idx), baseTcontact);
 
                 imuLogQ->resetIntegrationAndSetBias(prevBias);
             }
-            else if (flcl == 0 && flc == 1)
+            //! Front left leg makes contact
+            else if (prev_contact.frontleft == true && contact.frontleft == false)
             {
-                // Front Left Leg makes contact
-
                 // *************************
                 // Add Forward kinematics factor
 
                 INFO("Started contact at timestamp: {}", idx);
+
+                NavState pred_state = preintegrated->predict(prev_state, prev_bias);
+                frontleft_contact_pim->initialize(pred_state.pose(), pred_state.pose().compose(baseTcontact.inverse());
                 // Insert initialValues etc
                 // *************************
-                flState.baseMakeContact    = stateCount;
-                flState.contactMakeContact = stateCount;
+                flState.baseMakeContact    = state_idx;
+                flState.contactMakeContact = state_idx;
 
                 // Makes Contact Factor
                 encoder                          = leg_encoder_readings.at(0);
@@ -214,19 +216,18 @@ int main(int argc, char* argv[])
                 gtsam::Matrix3 encoder_covariance_matrix = Eigen::Matrix3d::Identity() * 0.0174;
                 gtsam::Matrix6 FK_covariance =
                     base_T_contact_jac * encoder_covariance_matrix * base_T_contact_jac.transpose();
-
                 Pose3 baseTcontact = Pose3(LegMeasurement::efInBaseExpMap(encoder, legConfigs["fl"]));
 
                 // This gives Contact Frame Relative to World position
                 fl = new LegMeasurement(legConfigs["fl"], propState.pose(), baseTcontact, dt, double(ts) / 200.);
                 imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
 
-                initialValues.insert(Q(stateCount), propState.pose().compose(baseTcontact));
+                initialValues.insert(Q(state_idx), propState.pose().compose(baseTcontact));
 
                 std::cout << FK_covariance << std::endl;
                 std::cout << noiseModel::Gaussian::Covariance(FK_covariance)->covariance() << std::endl;
                 BetweenFactor<Pose3> fk_factor(
-                    X(stateCount), Q(stateCount), baseTcontact, noiseModel::Gaussian::Covariance(FK_covariance));
+                    X(state_idx), Q(state_idx), baseTcontact, noiseModel::Gaussian::Covariance(FK_covariance));
 
                 graph->add(fk_factor);
 
@@ -234,21 +235,14 @@ int main(int argc, char* argv[])
                 graph->print();
                 INFO("Initial values size: {}", initialValues.size());
             }
-            else
-            {
-                // No change
-                imuLogQ->integrateMeasurement(imu.head<3>(), imu.tail<3>(), dt);
-
-                INFO("No change");
-            }
 
             // *******************************************
 
             // LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
             // result = optimizer.optimize();
-            // prevState = NavState(result.at<Pose3>(X(stateCount)),
-            //     result.at<Vector3>(V(stateCount)));
-            // prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
+            // prevState = NavState(result.at<Pose3>(X(state_idx)),
+            //     result.at<Vector3>(V(state_idx)));
+            // prevBias = result.at<imuBias::ConstantBias>(B(state_idx));
             // preintegrated->resetIntegrationAndSetBias(prevBias);
 
             isam2->update(*graph, initialValues);
@@ -256,8 +250,8 @@ int main(int argc, char* argv[])
             result = isam2->calculateEstimate();
             graph->resize(0);
             initialValues.clear();
-            prevState = NavState(result.at<Pose3>(X(stateCount)), result.at<Vector3>(V(stateCount)));
-            prevBias  = result.at<imuBias::ConstantBias>(B(stateCount));
+            prevState = NavState(result.at<Pose3>(X(state_idx)), result.at<Vector3>(V(state_idx)));
+            prevBias  = result.at<imuBias::ConstantBias>(B(state_idx));
             preintegrated->resetIntegrationAndSetBias(prevBias);
         }
 
@@ -270,41 +264,23 @@ int main(int argc, char* argv[])
         // Point Contact Factor
         // Forward Kinematic Factor
 
-        flcl = flc;
-        frcl = frc;
-        blcl = blc;
-        brcl = brc;
+        prev_contact = contact;
     }
-
-    // Eigen::Quaternion finRot3(w, i, j, k);
-    // Rot3 r(finRot3);
-    // Point3 t(x, y, z);
-    // Pose3 g = Pose3(r, t);
-    // std::cout << "Final Pose: " << g << std::endl;
-    // BetweenFactor<Pose3> lp(X(0), X(stateCount), priorPose.between(g), priorPoseNoise);
-    // graph->add(lp);
-
-    // LevenbergMarquardtOptimizer optimizer(*graph, initialValues);
-    // result = optimizer.optimize();
-    // prevState = NavState(result.at<Pose3>(X(stateCount)),
-    //     result.at<Vector3>(V(stateCount)));
-    // prevBias = result.at<imuBias::ConstantBias>(B(stateCount));
-    // preintegrated->resetIntegrationAndSetBias(prevBias);
 
     isam2->update(*graph, initialValues);
     isam2->update();
     result = isam2->calculateEstimate();
     graph->resize(0);
     initialValues.clear();
-    prevState = NavState(result.at<Pose3>(X(stateCount)), result.at<Vector3>(V(stateCount)));
-    prevBias  = result.at<imuBias::ConstantBias>(B(stateCount));
+    prevState = NavState(result.at<Pose3>(X(state_idx)), result.at<Vector3>(V(state_idx)));
+    prevBias  = result.at<imuBias::ConstantBias>(B(state_idx));
     preintegrated->resetIntegrationAndSetBias(prevBias);
 
-    saveTrajectory(result, stateCount);
+    saveTrajectory(result, state_idx);
     std::cout << "Sucessfully Completed" << std::endl;
 }
 
-void saveTrajectory(const Values& v, uint64_t stateCount)
+void saveTrajectory(const gtsam::Values& v, uint64_t state_idx)
 {
     std::string filename = "Trajectory.txt";
     std::cout << "Saving Base Trajectory to " << filename << std::endl;
@@ -313,7 +289,7 @@ void saveTrajectory(const Values& v, uint64_t stateCount)
 
     Pose3 base;
     f << "x,y,z" << std::endl;
-    for (uint64_t i = 0; i < stateCount; i++)
+    for (uint64_t i = 0; i < state_idx; i++)
     {
         base   = v.at<Pose3>(X(i));
         auto t = base.translation();

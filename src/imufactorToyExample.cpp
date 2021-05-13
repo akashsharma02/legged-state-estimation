@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
     // app.add_option("-q, --accex", a1, "trajectory Output filename");
     // app.add_option("-w, --accey", a2, "trajectory Output filename");
     // app.add_option("-e, --accez", a3, "trajectory Output filename");
-    
+
     CLI11_PARSE(app, argc, argv);
 
     legged::Dataloader dataloader = legged::Dataloader(imuConfigPath, legConfigFilePath, datasetFilePath);
@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
     std::array<gtsam::Vector3, 4> leg_encoder_readings;
     std::array<int, 4> leg_contact_readings;
 
-    while (dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, 
+    while (dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading,
         leg_encoder_readings, leg_contact_readings) && index++ < maxIdx) {
 
         // if (imu_cycle < max_imu) {
@@ -229,7 +229,7 @@ int main(int argc, char* argv[])
     // p:   2   1 1.5
     // v:   2   1 1.5
     // GTSAM_TANGENT_PREINTEGRATION
-    
+
 
     // Add a small final loop closure
     // Eigen::Quaternion finRot3(w, i, j, k);

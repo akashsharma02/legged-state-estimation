@@ -53,15 +53,15 @@ target_link_libraries(
 # )
 
 
-add_executable(
-  imuToy
-  imufactorToyExample.cpp
-)
+# add_executable(
+#   imuToy
+#   imufactorToyExample.cpp
+# )
 
-add_executable(
-  inertialOnly
-  inertialOnly.cpp
-)
+# add_executable(
+#   inertialOnly
+#   inertialOnly.cpp
+# )
 
 # target_link_libraries(
 #   testTwist
@@ -77,30 +77,30 @@ add_executable(
 #   ${PROJECT_NAME}
 # )
 
-target_link_libraries(
-  imuToy
-  PRIVATE
-  project_options
-  project_warnings
-  utils
-  CONAN_PKG::fmt
-  CONAN_PKG::spdlog
-  CONAN_PKG::cli11
-  gtsam
-  ${OpenCV_LIBS}
-  ${PROJECT_NAME}
-)
+# target_link_libraries(
+#   imuToy
+#   PRIVATE
+#   project_options
+#   project_warnings
+#   utils
+#   CONAN_PKG::fmt
+#   CONAN_PKG::spdlog
+#   CONAN_PKG::cli11
+#   gtsam
+#   ${OpenCV_LIBS}
+#   ${PROJECT_NAME}
+# )
 
-target_link_libraries(
-  inertialOnly
-  PRIVATE
-  project_options
-  project_warnings
-  utils
-  CONAN_PKG::fmt
-  CONAN_PKG::spdlog
-  CONAN_PKG::cli11
-  gtsam
-  ${OpenCV_LIBS}
-  ${PROJECT_NAME}
-)
+# target_link_libraries(
+#   inertialOnly
+#   PRIVATE
+#   project_options
+#   project_warnings
+#   utils
+#   CONAN_PKG::fmt
+#   CONAN_PKG::spdlog
+#   CONAN_PKG::cli11
+#   gtsam
+#   ${OpenCV_LIBS}
+#   ${PROJECT_NAME}
+# )

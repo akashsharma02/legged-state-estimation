@@ -146,7 +146,7 @@ namespace legged
         double bl0, bl1, bl2;
         double br0, br1, br2;
 
-        bool flc, frc, blc, brc;
+        int flc, frc, blc, brc;
 
         // clang-format off
         bool success = csv_reader_.read_row(ts,
@@ -171,10 +171,10 @@ namespace legged
         leg_encoder_readings.at(2) = gtsam::Vector3(bl0, bl1, bl2);
         leg_encoder_readings.at(3) = gtsam::Vector3(br0, br1, br2);
 
-        leg_contact_readings.frontleft = flc;
+        leg_contact_readings.frontleft  = flc;
         leg_contact_readings.frontright = frc;
-        leg_contact_readings.backleft = blc;
-        leg_contact_readings.backright = brc;
+        leg_contact_readings.backleft   = blc;
+        leg_contact_readings.backright  = brc;
 
         return success;
     }
