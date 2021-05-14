@@ -102,7 +102,7 @@ namespace gtsam
             if (H4)
             {
                 *H4                   = Matrix::Zero(3, 6);
-                H4->block(0, 3, 3, 3) = -posei.rotation().transpose() * contactj.rotation().matrix();
+                H4->block(0, 3, 3, 3) = posei.rotation().transpose() * contactj.rotation().matrix();
             }
 
             return error;

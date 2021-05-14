@@ -49,7 +49,8 @@ namespace legged
         gtsam::Pose3 hip_T_foot = extractPose(node, leg_name + "hip_T_foot");
 
         //! The actual contact pad is off by 0.0234 meters
-        gtsam::Pose3 end_eff_config_t0 = hip_T_foot * gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, -0.0234, 0));
+        // gtsam::Pose3 end_eff_config_t0 = hip_T_foot * gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, -0.0234, 0));
+        gtsam::Pose3 end_eff_config_t0 = hip_T_foot * gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0));
 
         gtsam::Pose3 base_T_joint = extractPose(node, leg_name + "base_T_joint");
 

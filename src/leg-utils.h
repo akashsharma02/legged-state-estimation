@@ -128,10 +128,10 @@ namespace legged
 
         inline void integrateMeasurement(const gtsam::Rot3& relative_imu_pim, const gtsam::Vector3 leg_encoder_reading)
         {
-            gtsam::Pose3 contact_T_base = getBaseTContactFromEncoder(leg_encoder_reading).inverse();
+            gtsam::Pose3 base_T_contact = getBaseTContactFromEncoder(leg_encoder_reading);
 
             //! \delta \tilde {R_{ik}} f_R(\tilde{\alpha_k}) \delta t
-            gtsam::Matrix33 B = relative_imu_pim.matrix() * contact_T_base.rotation().matrix() * imu_rate_;
+            gtsam::Matrix33 B = relative_imu_pim.matrix() * base_T_contact.rotation().matrix() * imu_rate_;
 
             measure_noise_ += B * leg_.getSlipCovariance() * B.transpose();
         }

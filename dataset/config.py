@@ -6,3 +6,6 @@ GyroWalk = 1.9393e-05
 AccWalk = 3.0000e-03 # 3e-03
 Frequency = 200 # True for collected data
 servoNoise = 1 / 180 * np.pi
+
+translationNoise = 0.05
+quaternionPert = 0.05
