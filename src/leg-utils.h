@@ -43,21 +43,20 @@ namespace legged
         inline std::vector<gtsam::Vector6> getTwists() const { return twists_; }
         inline gtsam::Pose3 getEndEffectorConfig() const { return end_eff_config_t0_; }
 
-        gtsam::Matrix63 baseToContactJacobian(gtsam::Vector3 encoder)
-    {
-    Matrix spatial_jacobian = Matrix::Zero(6, 3);
-    Pose3 g                 = leg.firstJointInBase;
+        /* gtsam::Matrix63 baseToContactJacobian(gtsam::Vector3 encoder) */
+        /* { */
+        /*     gtsam::Matrix spatial_jacobian = gtsam::Matrix::Zero(6, 3); */
+        /*     gtsam::Pose3 g                 = leg.firstJointInBase; */
 
-    spatial_jacobian.col(0) = leg.twists.at(0);
-    for (size_t i = 1; i < encoder.size(); i++)
-    {
-    auto twist = leg.twists.at(i) * encoder(i);
-    std::cout << leg.twists.at(i) << std::endl;
-    spatial_jacobian.col(i) = g.Adjoint(leg.twists.at(i));
-    g                       = g * Pose3::Expmap(twist);
-    }
-    return spatial_jacobian;
-    }
+        /*     spatial_jacobian.col(0) = leg.twists.at(0); */
+        /*     for (size_t i = 1; i < encoder.size(); i++) */
+        /*     { */
+        /*         auto twist = leg.twists.at(i) * encoder(i); */
+        /*         spatial_jacobian.col(i) = g.Adjoint(leg.twists.at(i)); */
+        /*         g                       = g * gtsam::Pose3::Expmap(twist); */
+        /*     } */
+        /*     return spatial_jacobian; */
+        /* } */
 
        public:
         std::vector<gtsam::Vector6> twists_;
@@ -79,6 +78,14 @@ namespace legged
         bool frontright;
         bool backleft;
         bool backright;
+    };
+
+    struct LegEncoderMeasurements
+    {
+        gtsam::Vector3 frontleft;
+        gtsam::Vector3 frontright;
+        gtsam::Vector3 backleft;
+        gtsam::Vector3 backright;
     };
 
     /*! \struct ContactStates
@@ -114,7 +121,7 @@ namespace legged
             resetIntegration();
         }
 
-        virtual ~PreintegratedContactMeasurement();
+        virtual ~PreintegratedContactMeasurement() {};
 
         void initialize(const gtsam::Pose3& base_frame, const gtsam::Pose3& contact_frame)
         {
@@ -144,7 +151,7 @@ namespace legged
         inline gtsam::Pose3 getBaseTContactFromEncoder(const gtsam::Vector3& leg_encoder_reading)
         {
             gtsam::Pose3 base_T_contact = leg_.getBaseTJoint();
-            for (size_t i = 0; i < leg_encoder_reading.size(); i++)
+            for (size_t i = 0; i < static_cast<size_t>(leg_encoder_reading.size()); i++)
             {
                 auto twist     = leg_.getTwists().at(i) * leg_encoder_reading(static_cast<Eigen::Index>(i));
                 base_T_contact = base_T_contact * gtsam::Pose3::Expmap(twist);
@@ -157,7 +164,6 @@ namespace legged
         double imu_rate_;
         gtsam::Matrix33 measure_noise_;
     };
-
 
 }  // namespace legged
 

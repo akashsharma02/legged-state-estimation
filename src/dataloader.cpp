@@ -135,7 +135,7 @@ namespace legged
     bool Dataloader::readDatasetLine(double& timestamp,
                                      gtsam::Pose3& final_pose_reading,
                                      gtsam::Vector6& imu_reading,
-                                     std::array<gtsam::Vector3, 4>& leg_encoder_readings,
+                                     legged::LegEncoderMeasurements& leg_encoder_readings,
                                      legged::LegContactMeasurements& leg_contact_readings)
     {
         double ts;
@@ -166,10 +166,10 @@ namespace legged
 
         imu_reading << ax, ay, az, wx, wy, wz;
 
-        leg_encoder_readings.at(0) = gtsam::Vector3(fl0, fl1, fl2);
-        leg_encoder_readings.at(1) = gtsam::Vector3(fr0, fr1, fr2);
-        leg_encoder_readings.at(2) = gtsam::Vector3(bl0, bl1, bl2);
-        leg_encoder_readings.at(3) = gtsam::Vector3(br0, br1, br2);
+        leg_encoder_readings.frontleft  = gtsam::Vector3(fl0, fl1, fl2);
+        leg_encoder_readings.frontright = gtsam::Vector3(fr0, fr1, fr2);
+        leg_encoder_readings.backleft   = gtsam::Vector3(bl0, bl1, bl2);
+        leg_encoder_readings.backright  = gtsam::Vector3(br0, br1, br2);
 
         leg_contact_readings.frontleft  = flc;
         leg_contact_readings.frontright = frc;
