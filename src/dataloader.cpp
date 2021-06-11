@@ -6,6 +6,7 @@
  * Description:
  *****************************************************************************/
 #include "dataloader.h"
+#include <memory>
 
 namespace legged
 {
@@ -49,11 +50,16 @@ namespace legged
         gtsam::Pose3 hip_T_foot = extractPose(node, leg_name + "hip_T_foot");
 
         //! The actual contact pad is off by 0.0234 meters
-        gtsam::Pose3 end_eff_config_t0 = hip_T_foot * gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, -0.0234, 0));
+        gtsam::Pose3 end_eff_zero_config = hip_T_foot * gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, -0.0234, 0));
 
-        gtsam::Pose3 base_T_joint = extractPose(node, leg_name + "base_T_joint");
+        gtsam::Pose3 base_T_hip = extractPose(node, leg_name + "base_T_joint");
 
-        LegConfig config(twists, base_T_joint, end_eff_config_t0, gtsam::Matrix33::Identity());
+        LegConfig config(leg_name,
+                         twists,
+                         base_T_hip,
+                         end_eff_zero_config,
+                         gtsam::Matrix33::Identity(),
+                         gtsam::Matrix33::Identity() * 0.0174);
         return config;
     }
 
@@ -128,15 +134,19 @@ namespace legged
                                 "fr0", "fr1", "fr2",
                                 "bl0", "bl1", "bl2",
                                 "br0", "br1", "br2",
+                                "flx", "fly", "flz", "fli", "flj", "flk", "flw",
+                                "frx", "fry", "frz", "fri", "frj", "frk", "frw",
+                                "blx", "bly", "blz", "bli", "blj", "blk", "blw",
+                                "brx", "bry", "brz", "bri", "brj", "brk", "brw",
                                 "flc", "frc", "blc", "brc");
         //clang-format on
     }
 
+
     bool Dataloader::readDatasetLine(double& timestamp,
                                      gtsam::Pose3& final_pose_reading,
                                      gtsam::Vector6& imu_reading,
-                                     legged::LegEncoderMeasurements& leg_encoder_readings,
-                                     legged::LegContactMeasurements& leg_contact_readings)
+                                     legged::LegMeasurements& leg_readings)
     {
         double ts;
         double x, y, z, i, j, k, w;
@@ -145,6 +155,11 @@ namespace legged
         double fr0, fr1, fr2;
         double bl0, bl1, bl2;
         double br0, br1, br2;
+
+        double flx, fly, flz, fli, flj, flk, flw;
+        double frx, fry, frz, fri, frj, frk, frw;
+        double blx, bly, blz, bli, blj, blk, blw;
+        double brx, bry, brz, bri, brj, brk, brw;
 
         int flc, frc, blc, brc;
 
@@ -156,6 +171,10 @@ namespace legged
                                            fr0, fr1, fr2,
                                            bl0, bl1, bl2,
                                            br0, br1, br2,
+                                           flx, fly, flz, fli, flj, flk, flw,
+                                           frx, fry, frz, fri, frj, frk, frw,
+                                           brx, bry, brz, bri, brj, brk, brw,
+                                           blx, bly, blz, bli, blj, blk, blw,
                                            flc, frc, blc, brc);
         // clang-format on
         timestamp = ts;
@@ -166,15 +185,22 @@ namespace legged
 
         imu_reading << ax, ay, az, wx, wy, wz;
 
-        leg_encoder_readings.frontleft  = gtsam::Vector3(fl0, fl1, fl2);
-        leg_encoder_readings.frontright = gtsam::Vector3(fr0, fr1, fr2);
-        leg_encoder_readings.backleft   = gtsam::Vector3(bl0, bl1, bl2);
-        leg_encoder_readings.backright  = gtsam::Vector3(br0, br1, br2);
-
-        leg_contact_readings.frontleft  = flc;
-        leg_contact_readings.frontright = frc;
-        leg_contact_readings.backleft   = blc;
-        leg_contact_readings.backright  = brc;
+        leg_readings.at(0) = std::make_shared<legged::LegMeasurement>(
+            flc,
+            gtsam::Vector3(fl0, fl1, fl2),
+            gtsam::Pose3(gtsam::Quaternion(flw, fli, flj, flk), gtsam::Vector3(flx, fly, flz)));
+        leg_readings.at(1) = std::make_shared<legged::LegMeasurement>(
+            frc,
+            gtsam::Vector3(fr0, fr1, fr2),
+            gtsam::Pose3(gtsam::Quaternion(frw, fri, frj, frk), gtsam::Vector3(flx, fly, flz)));
+        leg_readings.at(2) = std::make_shared<legged::LegMeasurement>(
+            blc,
+            gtsam::Vector3(bl0, bl1, bl2),
+            gtsam::Pose3(gtsam::Quaternion(blw, bli, blj, blk), gtsam::Vector3(flx, fly, flz)));
+        leg_readings.at(3) = std::make_shared<legged::LegMeasurement>(
+            brc,
+            gtsam::Vector3(br0, br1, br2),
+            gtsam::Pose3(gtsam::Quaternion(brw, bri, brj, brk), gtsam::Vector3(flx, fly, flz)));
 
         return success;
     }

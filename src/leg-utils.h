@@ -26,43 +26,37 @@ namespace legged
     class LegConfig
     {
        public:
-        LegConfig(const std::vector<gtsam::Vector6>& twists,
-                  gtsam::Pose3 base_T_joint,
-                  gtsam::Pose3 eff_config_t0,
-                  gtsam::Matrix3 slip_covariance)
-            : twists_(twists),
-              base_T_joint_(base_T_joint),
-              end_eff_config_t0_(eff_config_t0),
-              slip_covariance_(slip_covariance)
+        LegConfig(const std::string& leg_name,
+                  const std::vector<gtsam::Vector6>& twists,
+                  gtsam::Pose3 base_T_hip,
+                  gtsam::Pose3 eff_zero_config,
+                  gtsam::Matrix33 slip_covariance,
+                  gtsam::Matrix33 encoder_covariance)
+            : leg_name_(leg_name),
+              twists_(twists),
+              base_T_hip_(base_T_hip),
+              eff_zero_config_(eff_zero_config),
+              slip_covariance_(slip_covariance),
+              encoder_covariance_(encoder_covariance)
+
         {
         }
         ~LegConfig() {}
 
         inline gtsam::Matrix33 getSlipCovariance() const { return slip_covariance_; }
-        inline gtsam::Pose3 getBaseTJoint() const { return base_T_joint_; }
+        inline gtsam::Matrix33 getEncoderCovariance() const { return encoder_covariance_; }
+        inline gtsam::Pose3 getBaseTHip() const { return base_T_hip_; }
+        inline gtsam::Pose3 getBaseTContactZeroConfig() const { return base_T_hip_ * eff_zero_config_; }
         inline std::vector<gtsam::Vector6> getTwists() const { return twists_; }
-        inline gtsam::Pose3 getEndEffectorConfig() const { return end_eff_config_t0_; }
-
-        /* gtsam::Matrix63 baseToContactJacobian(gtsam::Vector3 encoder) */
-        /* { */
-        /*     gtsam::Matrix spatial_jacobian = gtsam::Matrix::Zero(6, 3); */
-        /*     gtsam::Pose3 g                 = leg.firstJointInBase; */
-
-        /*     spatial_jacobian.col(0) = leg.twists.at(0); */
-        /*     for (size_t i = 1; i < encoder.size(); i++) */
-        /*     { */
-        /*         auto twist = leg.twists.at(i) * encoder(i); */
-        /*         spatial_jacobian.col(i) = g.Adjoint(leg.twists.at(i)); */
-        /*         g                       = g * gtsam::Pose3::Expmap(twist); */
-        /*     } */
-        /*     return spatial_jacobian; */
-        /* } */
+        inline gtsam::Pose3 getHipTContactZeroConfig() const { return eff_zero_config_; }
 
        public:
+        std::string leg_name_;
         std::vector<gtsam::Vector6> twists_;
-        gtsam::Pose3 base_T_joint_;
-        gtsam::Pose3 end_eff_config_t0_;
+        gtsam::Pose3 base_T_hip_;
+        gtsam::Pose3 eff_zero_config_;
         gtsam::Matrix33 slip_covariance_;
+        gtsam::Matrix33 encoder_covariance_;
     };
 
     using LegConfigMap = std::map<std::string, LegConfig>;
@@ -87,6 +81,75 @@ namespace legged
         gtsam::Vector3 backleft;
         gtsam::Vector3 backright;
     };
+
+    struct LegPoseMeasurements
+    {
+        gtsam::Pose3 frontleft;
+        gtsam::Pose3 frontright;
+        gtsam::Pose3 backleft;
+        gtsam::Pose3 backright;
+    };
+
+    /*! \class LegMeasurement
+     *  \brief Brief class description
+     *
+     *  Detailed description
+     */
+    class LegMeasurement
+    {
+       public:
+        typedef std::shared_ptr<LegMeasurement> shared_ptr;
+
+        LegMeasurement(bool contact, const gtsam::Vector3& encoder_measurement, const gtsam::Pose3& contact_pose_measurement)
+            : contact_(contact), encoder_meas_(encoder_measurement), contact_pose_meas_(contact_pose_measurement)
+        {
+        }
+        virtual ~LegMeasurement(){};
+
+        inline bool getContactState() const { return contact_; }
+        inline gtsam::Vector3 getEncoderMeasurement() const { return encoder_meas_; }
+        inline gtsam::Pose3 getContactPoseMeasurement() const { return contact_pose_meas_; }
+
+        gtsam::Pose3 getbaseTContactFromEncoder(const LegConfig& leg_config) const
+        {
+            //! g_st(0)
+            gtsam::Pose3 base_T_contact = leg_config.getBaseTContactZeroConfig();
+            for (size_t i = static_cast<size_t>(encoder_meas_.size() - 1); i >= 0; i--)
+            {
+                auto twist = leg_config.getTwists().at(i) * encoder_meas_(static_cast<Eigen::Index>(i));
+                //! g_st(theta) = exp(\xi_n \alpha_n) * g_st(0)
+                base_T_contact = gtsam::Pose3::Expmap(twist) * base_T_contact;
+            }
+
+            return base_T_contact;
+        }
+
+        gtsam::Matrix63 getBaseTContactJacobian(const LegConfig& leg_config) const
+        {
+            //! This is the body manipulator jacobian of the leg
+            gtsam::Matrix63 J = gtsam::Matrix::Zero(6, 3);
+
+            //! g_st(0)
+            gtsam::Pose3 base_T_contact = leg_config.getBaseTContactZeroConfig();
+            size_t n                    = static_cast<size_t>(encoder_meas_.size());
+            for (size_t i = n - 1; i >= 0; i--)
+            {
+                auto xi                             = leg_config.getTwists().at(i);
+                auto twist                          = xi * encoder_meas_(static_cast<Eigen::Index>(i));
+                base_T_contact                      = gtsam::Pose3::Expmap(twist) * base_T_contact;
+                auto contact_T_base                 = base_T_contact.inverse();
+                J.col(static_cast<Eigen::Index>(i)) = contact_T_base.Adjoint(xi);
+            }
+            return J;
+        }
+
+       private:
+        bool contact_;
+        gtsam::Vector3 encoder_meas_;
+        gtsam::Pose3 contact_pose_meas_;
+    };
+
+    using LegMeasurements = std::array<LegMeasurement::shared_ptr, 4>;
 
     /*! \struct ContactStates
      *  \brief Maintains the keys of the frames that participate in a make-break contact during robot gait
@@ -121,7 +184,7 @@ namespace legged
             resetIntegration();
         }
 
-        virtual ~PreintegratedContactMeasurement() {};
+        virtual ~PreintegratedContactMeasurement(){};
 
         void initialize(const gtsam::Pose3& base_frame, const gtsam::Pose3& contact_frame)
         {

@@ -118,8 +118,7 @@ int main(int argc, char* argv[])
     double timestamp;
     gtsam::Pose3 final_pose_reading;
     gtsam::Vector6 imu_reading;
-    legged::LegEncoderMeasurements leg_encoder_readings;
-    legged::LegContactMeasurements contact, prev_contact;
+    legged::LegMeasurements leg_readings, prev_leg_readings;
     bool is_robot_ready = false;
 
     //! Pre-integrate IMU measurements for the base frame
@@ -129,13 +128,13 @@ int main(int argc, char* argv[])
     std::shared_ptr<legged::PreintegratedContactMeasurement> frontleft_contact_pim =
         std::make_shared<legged::PreintegratedContactMeasurement>(leg_configs.at("front_left"), imu_rate);
 
-    while (dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, leg_encoder_readings, contact) &&
-           index++ < max_index)
+    while (dataloader.readDatasetLine(timestamp, final_pose_reading, imu_reading, leg_readings) && index++ < max_index)
     {
         // Wait until all four legs are on the ground
         // since they are initially floating
-        if (contact.frontleft == true && contact.frontright == true && contact.backleft == true &&
-            contact.backright == true && !is_robot_ready)
+        if (leg_readings[0]->getContactState() == true && leg_readings[1]->getContactState() == true &&
+            leg_readings[2]->getContactState() == true && leg_readings[3]->getContactState() == true &&
+            !is_robot_ready)
         {
             is_robot_ready = true;
             INFO("Robot marked ready at {}", index);
@@ -185,12 +184,17 @@ int main(int argc, char* argv[])
                 /* baseTcontact       = propState.pose().compose(baseTcontact); */
             }
             //! Front left leg makes contact
-            else if (!prev_contact.frontleft && contact.frontleft)
+            else
             {
-                // *************************
-                // Add Forward kinematics factor
+                //! Add forward kinematics factor
+                const auto& pose_measurement = leg_pose_readings.frontleft;
 
-                INFO("Started contact at timestamp: {}", index);
+                gtsam::Matrix J_base_T_contact = LegMeasurement::baseToContactJacobian(encoder, legConfigs["fl"]);
+
+                gtsam::noiseModel::Gaussian fk_noise(6, encoder_noise.Whiten(J_base_T_contact))
+                    base_T_contact_jac** base_T_contact_jac.transpose();
+                BetweenFactor<Pose3> frontleft_fk_factor(
+                    X(state_idx), Q(state_idx), pose_measurement, noiseModel::Gaussian::Covariance(fk_covariance));
 
                 /* NavState pred_state = preintegrated->predict(prev_state, prev_bias); */
                 /* frontleft_contact_pim->initialize(pred_state.pose(), pred_state.pose().compose(baseTcontact.inverse()); */
@@ -201,11 +205,6 @@ int main(int argc, char* argv[])
 
                 /* // Makes Contact Factor */
                 /* encoder                          = leg_encoder_readings.at(0); */
-                /* gtsam::Matrix base_T_contact_jac = LegMeasurement::baseToContactJacobian(encoder, legConfigs["fl"]); */
-                /* std::cout << base_T_contact_jac << std::endl; */
-                /* gtsam::Matrix3 encoder_covariance_matrix = Eigen::Matrix3d::Identity() * 0.0174; */
-                /* gtsam::Matrix6 FK_covariance = */
-                /*     base_T_contact_jac * encoder_covariance_matrix * base_T_contact_jac.transpose(); */
                 /* Pose3 baseTcontact = Pose3(LegMeasurement::efInBaseExpMap(encoder, legConfigs["fl"])); */
 
                 /* // This gives Contact Frame Relative to World position */

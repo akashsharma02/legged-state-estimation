@@ -48,8 +48,7 @@ namespace legged
         bool readDatasetLine(double &timestamp,
                              gtsam::Pose3 &final_pose_reading,
                              gtsam::Vector6 &imu_reading,
-                             legged::LegEncoderMeasurements &leg_encoder_readings,
-                             legged::LegContactMeasurements &leg_contact_readings);
+                             legged::LegMeasurements &leg_readings);
 
        protected:
         void loadLegConfigs();
