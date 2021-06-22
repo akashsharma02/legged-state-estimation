@@ -41,7 +41,7 @@ namespace legged
 
         virtual ~Dataloader(){};
 
-        inline LegConfigMap getLegConfigs() const { return leg_config_map_; }
+        LegConfigMap getLegConfigs() const { return leg_config_map_; }
         inline gtsam::PreintegrationCombinedParams getImuParams() const { return imu_params_; }
         inline gtsam::imuBias::ConstantBias getImuBias() const { return prior_imu_bias_; }
 
@@ -74,7 +74,7 @@ namespace legged
         gtsam::PreintegrationCombinedParams imu_params_;
         gtsam::imuBias::ConstantBias prior_imu_bias_;
 
-        io::CSVReader<23 + 7> csv_reader_;
+        io::CSVReader<23 + 7 + 4 * 7> csv_reader_;
     };
 }  // namespace legged
 

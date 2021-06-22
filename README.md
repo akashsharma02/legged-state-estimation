@@ -15,6 +15,8 @@ This repository is a reimplementation of the paper [Legged Robot State estimatio
 Remaining used packages should get built automatically during cmake configuration. Prefer `ccmake` for viewing all available options
 
 ## Usage
+Download simulated data from [here](https://drive.google.com/file/d/1cEVjSEjzkvFj_Eq_C2nKiIx46FBHljSI/view?usp=sharing),
+requires CMU login. 
 
 # The currently working executable is `inertialOnly`, coupled with `sequence10.txt`
 

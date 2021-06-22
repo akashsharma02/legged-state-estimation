@@ -114,7 +114,9 @@ namespace legged
         {
             //! g_st(0)
             gtsam::Pose3 base_T_contact = leg_config.getBaseTContactZeroConfig();
-            for (size_t i = static_cast<size_t>(encoder_meas_.size() - 1); i >= 0; i--)
+            // Unsigned comparison would always be larger than 0
+            // Since underflow => wrap around
+            for (size_t i = static_cast<size_t>(encoder_meas_.size() - 1); int(i) >= 0; i--)
             {
                 auto twist = leg_config.getTwists().at(i) * encoder_meas_(static_cast<Eigen::Index>(i));
                 //! g_st(theta) = exp(\xi_n \alpha_n) * g_st(0)
@@ -132,7 +134,7 @@ namespace legged
             //! g_st(0)
             gtsam::Pose3 base_T_contact = leg_config.getBaseTContactZeroConfig();
             size_t n                    = static_cast<size_t>(encoder_meas_.size());
-            for (size_t i = n - 1; i >= 0; i--)
+            for (size_t i = n - 1; int(i) >= 0; i--)
             {
                 auto xi                             = leg_config.getTwists().at(i);
                 auto twist                          = xi * encoder_meas_(static_cast<Eigen::Index>(i));
@@ -213,13 +215,17 @@ namespace legged
        protected:
         inline gtsam::Pose3 getBaseTContactFromEncoder(const gtsam::Vector3& leg_encoder_reading)
         {
-            gtsam::Pose3 base_T_contact = leg_.getBaseTJoint();
+            gtsam::Pose3 base_T_contact = leg_.getBaseTHip();
+            // Was originally getBaseTJoint. Since this is calculating Base to Contact, it seems BaseTHip is 
+            // the right corresponding update.
             for (size_t i = 0; i < static_cast<size_t>(leg_encoder_reading.size()); i++)
             {
                 auto twist     = leg_.getTwists().at(i) * leg_encoder_reading(static_cast<Eigen::Index>(i));
                 base_T_contact = base_T_contact * gtsam::Pose3::Expmap(twist);
             }
-            base_T_contact = base_T_contact * leg_.getEndEffectorConfig();
+            base_T_contact = base_T_contact * leg_.getHipTContactZeroConfig();
+            // Was originally getEndEffectorConfig, Judging by the change log
+            // These two seems to be refering to the same Value
             return base_T_contact;
         }
 
